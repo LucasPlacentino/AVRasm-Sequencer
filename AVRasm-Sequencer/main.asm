@@ -18,8 +18,58 @@
 .def temp = r16 ; example: define alias "temp" for the register "r16"
 
 ; Timer1 reset value for overflow timing
-.equ TCNT1_RESET_880 = 47354  ;440Hz 880Hz ? A
-.equ TCNT1_RESET_
+; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
+; e.g: .equ TCNT1_RESET_880 = 47354  ;440Hz (880Hz because toggle) ? A
+.equ TCNT1_RESET_C4  = 34958  ; 261.63 Hz
+.equ TCNT1_RESET_CS4 = 36674  ; 277.18 Hz (C#)
+.equ TCNT1_RESET_D4  = 38294  ; 293.66 Hz
+.equ TCNT1_RESET_DS4 = 39823  ; 311.13 Hz (D#)
+.equ TCNT1_RESET_E4  = 41267  ; 329.63 Hz
+.equ TCNT1_RESET_F4  = 42628  ; 349.23 Hz
+.equ TCNT1_RESET_FS4 = 43914  ; 369.99 Hz (F#)
+.equ TCNT1_RESET_G4  = 45128  ; 392.00 Hz
+.equ TCNT1_RESET_GS4 = 46273  ; 415.30 Hz (G#)
+.equ TCNT1_RESET_A4  = 47354  ; 440.00 Hz
+.equ TCNT1_RESET_AS4 = 48375  ; 466.16 Hz (A#)
+.equ TCNT1_RESET_B4  = 49338  ; 493.88 Hz
+.equ TCNT1_RESET_C5  = 50247  ; 523.25 Hz
+
+; TODO: use CTC mdoe ? (clear timer on compare match)
+; load value into OCR1A
+; automatically resets timer and toggles pin (COM1A0 = 1) on the clock edge, it's more precise for slightly better sound
+; buzzer needs to be connected to OC1A pin (PB1), it is thanks!!
+; ocr1a = (16MHz / (2*N*freq_sound)) - 1
+; where N is the prescaler (N=1 ?)
+; --- OCR1A values for each note
+.equ NOTE_C3  = 61156  ; 130.81 Hz
+.equ NOTE_CS3 = 57723  ; 138.59 Hz (C#)
+.equ NOTE_D3  = 54484  ; 146.83 Hz
+.equ NOTE_DS3 = 51426  ; 155.56 Hz (D#)
+.equ NOTE_E3  = 48540  ; 164.81 Hz
+.equ NOTE_F3  = 45815  ; 174.61 Hz
+.equ NOTE_FS3 = 43242  ; 185.00 Hz (F#)
+.equ NOTE_G3  = 40815  ; 196.00 Hz
+.equ NOTE_GS3 = 38525  ; 207.65 Hz (G#)
+.equ NOTE_A3  = 36363  ; 220.00 Hz
+.equ NOTE_AS3 = 34322  ; 233.08 Hz (A#)
+.equ NOTE_B3  = 32396  ; 246.94 Hz
+; ---
+.equ NOTE_C4  = 30577  ; 261.63 Hz
+.equ NOTE_CS4 = 28861  ; 277.18 Hz (C#)
+.equ NOTE_D4  = 27241  ; 293.66 Hz
+.equ NOTE_DS4 = 25712  ; 311.13 Hz (D#)
+.equ NOTE_E4  = 24269  ; 329.63 Hz
+.equ NOTE_F4  = 22907  ; 349.23 Hz
+.equ NOTE_FS4 = 21621  ; 369.99 Hz (F#)
+.equ NOTE_G4  = 20407  ; 392.00 Hz
+.equ NOTE_GS4 = 19262  ; 415.30 Hz (G#)
+.equ NOTE_A4  = 18181  ; 440.00 Hz
+.equ NOTE_AS4 = 17160  ; 466.16 Hz (A#)
+.equ NOTE_B4  = 16197  ; 493.88 Hz
+; ---
+.equ NOTE_C5  = 15288  ; 523.25 Hz
+
+
 
 .equ LED_OUT2_DIR = DDRc
 .equ LED_OUT2_BANK = PORTc
@@ -78,22 +128,28 @@
 setup:
 	sei ;enable interrupts
 	;ldi R16, 1<<TOIE0 ; 0b001
-	ldi R16, 0b1
+	ldi temp, 0b1
 	;sbi TIMSK0,TOIE0 ; cannot do that
-	sts TIMSK0,R16 ; enable timer 0 overflow interrupt ; store to SRAM (TIMSK0 is in Extended I/O space so in SRAM)
+	sts TIMSK0,temp ; enable timer 0 overflow interrupt ; store to SRAM (TIMSK0 is in Extended I/O space so in SRAM)
 
 	;set timer 0 to normal mode
-	ldi R16, 0b000 ; normal mode
-	out TCCR0A,R16 ; write to TCCR0A to set normal mode
+	ldi temp, 0b000 ; normal mode
+	out TCCR0A,temp ; write to TCCR0A to set normal mode
 	; set timer0 prescaler to 256 (0b100)
 	;ldi R16, 1<<CS02 ; combine bits for prescaler 256
-	ldi R16, 0b100 ; combine bits for prescaler 256
-	out TCCR0B,R16 ; write to TCCR0B to set prescaler
+	ldi temp, 0b100 ; combine bits for prescaler 256
+	out TCCR0B,temp ; write to TCCR0B to set prescaler
 
 	; timer0 initial value to get 880 interrupts per second
 	; 880Hz, f_clk prescaler 256 => 16MHz/256 => 184.977 = 185 initial value for timer to get 880 interrupts per second
 	ldi R29, 185
 	out TCNT0,R29
+
+	; -- Configure TCCR1A
+    ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match
+    ; WGM11:0  = 00 -> Lower bits for CTC Mode 4
+    ldi temp, (1<<COM1A0)
+    sts TCCR1A, temp
 
 	;set pins
 
