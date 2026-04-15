@@ -94,6 +94,14 @@ Notes_LUT:
 ; 0x00 to 0x18
 ; 0xFF will be no sound
 
+.dseg
+.org SRAM_START ; (0x0100 ?)
+Sequence: .byte 32 ; 32 bytes for the 32 steps
+Step: .byte 1 ; keep traack of step number (0 to 31)
+Tick_Counter: .byte 2 ; 16-bit counter for milliseconds
+Tempo_Delay: .byte 2 ; 16-bit delay (in ms) based on BPM, kinda rounded
+.cseg
+
 ; === play the note from r17 (input), byte is index of note, 0x00-0x18 or 0xFF ===
 Play_Note:
 	push r18
@@ -158,6 +166,14 @@ Mute_Buzzer:
 	ret
 ; ======
 
+; -- Use Timer 2 for the metronome
+; 16MHz clock, prescaler at 64 => 250 000 ticks/sec
+; for 1ms: (250000 / 1000) - 1 = 249
+; let's use a "16th-note" step (whatever that means i'm not a musician)
+; target delay is:
+; 60000 / (BPM * 4) = Tempo_Delay
+
+
 .equ LED_OUT2_DIR = DDRc
 .equ LED_OUT2_BANK = PORTc
 .equ LED_OUT2_IDX = 2 ; or PC2
@@ -204,17 +220,14 @@ Mute_Buzzer:
 .org 0x0000
 	rjmp setup
 
-; TIMER0 OVF (see page 12 of slides interrupts)
-.org 0x0020 ; timer 0 overflow interrupt vector
-	rjmp ISR880Hz
-
-
-
-; --- a tone of 440Hz needs an interrupt at 880Hz (toggle on and off) => 880 interrupts per second ---
-; 8-bit counter: prescaler 256 (0b100) => 185 initial value for timer to get 880 interrupts per second
+; timer2 OVF
+.org OC2Aaddr ; timer 2 overflow interrrupt vector ?
+	rjmp ISR_Metronome
 
 
 ; use timer 1 for the buzzer sound notes
+
+; === Setup sequence, runs once on startup ===
 setup:
 	sei ;enable interrupts
 
@@ -264,27 +277,38 @@ setup:
 	cbi LED_OUT3_BANK,LED_OUT3_IDX ;clear led3 to off
 
 	rjmp loop
+; ======
 
+; === infinite loop sequence ===
 loop:
-	; lab 3 code:
-	;; poll keypad
-	;rjmp kp_polling_1
 
-	;; lab 2 code:
-	;in r0,SW_IN_SENSE ;get value of pin bank
-	;;then get bit index SW_IN_IDX of SW_IN_SENSE to know if pin is low or high
-	;bst r0,SW_IN_IDX ;Bit Store from register to T flag ;get bit value from the bank above
-	;;T flag is cleared(0) if btn is pressed (to gnd)
-	;brtc buz_en;BRanch if T flag is Cleared(0) ;meaning btn is GND meaning pressed
-	;;brtc(0) or brts (1) vice-versa
-	;buz_disabled:
-	;	rcall BUZOFF
-	;	rjmp end_buz_br
-	;buz_en:
-	;	rcall BUZON
-	;end_buz_br:
+	rjmp kp_polling_1 ; ?
 
     rjmp loop
+; ======
+
+; === Metronome's ISR ===
+ISR_Metronome:
+	push temp
+    push r17
+    push ZL
+    push ZH
+    in temp, SREG
+    push temp
+
+	; ...
+
+	End_Metronome_ISR:
+    ; -- restore
+    pop temp
+    out SREG, temp
+    pop ZH
+    pop ZL
+    pop r17
+    pop temp
+    reti
+; ======
+
 
 LED2ON:
 	; LOW enable
@@ -300,20 +324,16 @@ LED3ON:
 LED3OFF:
 	sbi LED_OUT3_BANK,LED_OUT3_IDX ;set bit of led to low
 	ret
-BUZON:
-	ldi R16, 0b1
-	sts TIMSK0,R16 ; enable timer 0 overflow interrupt
-	ret
-BUZOFF:
-	ldi R16, 0b0
-	sts TIMSK0,R16 ; disable timer 0 overflow interrupt
-	ret
+;BUZON:
+;	ldi R16, 0b1
+;	sts TIMSK0,R16 ; enable timer 0 overflow interrupt
+;	ret
+;BUZOFF:
+;	ldi R16, 0b0
+;	sts TIMSK0,R16 ; disable timer 0 overflow interrupt
+;	ret
 
-other_btn_pressed:
-	rcall LED2OFF
-	rcall LED3OFF
-	rcall BUZON
-	ret
+
 
 ; making this a macro can make it more elegant
 ;KP_POLLING_2:
@@ -403,10 +423,7 @@ kp_polling_1:
 	;ret
 
 no_kp_pressed:
-	; set everything OFF
-	rcall LED2OFF
-	rcall LED3OFF
-	rcall BUZOFF
+	; do something/nothing ?
 	rjmp loop
 
 col1pressed:
@@ -433,98 +450,58 @@ col4pressed:
 
 ; --- COL 1 ---
 col1row1:
-	; BTN 7
-	; turn both LEDs on
-	rcall LED2ON
-	rcall LED3ON
-	rcall BUZOFF
+	; do something
 	rjmp loop
 col1row2:
-	; BTN4
-	; top LED on
-	rcall LED2ON
-	rcall LED3OFF
-	rcall BUZOFF
+	; do something
 	rjmp loop
 col1row3:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col1row4:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 
 ; --- COL 2 ---
 col2row1:
-	; BTN 8
-	; bottom LED on
-	rcall LED2OFF
-	rcall LED3ON
-	rcall BUZOFF
+	; do something
 	rjmp loop
 col2row2:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col2row3:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col2row4:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 
 ; --- COL 3 ---
 col3row1:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col3row2:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col3row3:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col3row4:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 
 ; --- COL 4 ---
 col4row1:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col4row2:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col4row3:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 col4row4:
-	rcall other_btn_pressed
+	; do something
 	rjmp loop
 
-
-ISR880Hz:
-	push r29 ; save r29 to stack (FILO)
-
-	; reset timer counter to get 880 interrupts per second
-	; 880Hz, f_clk prescaler 256 => 16MHz/256 => 184.977 = 185 initial value for timer to get 880 interrupts per second
-	ldi R29,0xB9 ; 0xB9 is 185 in hex
-	out TCNT0,R29
-
-
-	sbi BZ_OUT_PIN_TGL,1 ; toggle buzzer pin (trick)
-	; or
-	;sbi PINB,1
-	; or
-	;sbi PB,1
-
-	; sbis PORTb,1 ; spik if pin bit is set
-	; rjmp other
-	; cbi portb,1
-	; rjmp end_isr_880
-	; other:
-	; sbi portb,1
-
-
-	end_isr_880:
-	pop r29; ; get r29 back from stack
-
-	reti ; return from interrupt, will re-enable interrupts
 
