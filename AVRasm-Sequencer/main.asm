@@ -55,9 +55,11 @@
 .equ NOTE_B3  = 32396  ; 246.94 Hz
 ; ---
 .equ NOTE_C4  = 30577  ; 261.63 Hz
+; or stop here ? to get only one octave but keep 3 buttons for other stuff ?
 .equ NOTE_CS4 = 28861  ; 277.18 Hz (C#)
 .equ NOTE_D4  = 27241  ; 293.66 Hz
 .equ NOTE_DS4 = 25712  ; 311.13 Hz (D#)
+; that's 16 notes, too much ?
 .equ NOTE_E4  = 24269  ; 329.63 Hz
 .equ NOTE_F4  = 22907  ; 349.23 Hz
 .equ NOTE_FS4 = 21621  ; 369.99 Hz (F#)
@@ -68,15 +70,6 @@
 .equ NOTE_B4  = 16197  ; 493.88 Hz
 ; ---
 .equ NOTE_C5  = 15288  ; 523.25 Hz
-
-; to mute:
-;Mute_Buzzer:
-;	 ; Disconnect the timer hardware from PB1 by clearing COM1A0
-;    ldi temp, 0x00
-;    sts TCCR1A, temp
-;    ; Force the pin LOW to prevent DC current from damaging the buzzer
-;    cbi PORTB, 1
-;	 ret
 
 ; example:
 ;Play_Note_C4:
@@ -101,7 +94,13 @@ Notes_LUT:
 ; 0x00 to 0x18
 ; 0xFF will be no sound
 
+; === play the note from r17 (input), byte is index of note, 0x00-0x18 or 0xFF ===
 Play_Note:
+	push r18
+    push r19
+    push r20
+    push ZL ; aka r30
+    push ZH ; aka r31
 	; -- no note ?
 	cpi r17, 0xFF
 	breq Note_Mute
@@ -109,17 +108,18 @@ Play_Note:
 	; -- check if OOB memory location ? outside the lut
 	cpi r17, 25 ; because 25 notes (or 0x19)
 	brge End_Play_Note ; if index >= 25, skip to end
-	; -- compute byte offset (word is 2 bytes, aka 16bits)
-	mov r18, r17 ; MOVe lut index to r18
+	; -- compute byte offset (word is 2 bytes, aka 16bits), 16 bit mult by 2:
+	mov r18, r17 ; MOVe lut index to r18 (keep r17 intact)
     clr r19 ; CLeaR r19 for the high byte of the offset
-    lsl r18 ; Logical Shift Left (mult r18 by 2)
-    rol r19 ; Rotate carry into r18 to handle numbers > 127
-	; -- set up z pointer: r31-r30 (flash mem is word-based, but `lpm` uses bytes for addresses, need to mult by 2 the note index of the lut)
+    lsl r18 ; Logical Shift Left (mult r18 by 2) (MSB goes in the Carry Flag (C))
+    rol r19 ; ROtate Left thrpugh carry r19, here just pulls the shifted MSB from r18 in the Carry Flag (to handle numbers > 127)
+
+	; -- set up z pointer: r31(ZH)-r30(ZL) (flash mem is word-based, but `lpm` uses bytes for addresses, need to mult by 2 the note index of the lut)
 	ldi ZL, low(Note_LUT * 2)
     ldi ZH, high(Note_LUT * 2)
 	; -- add offset to z pointer
 	add ZL, r18
-    adc ZH, r19 ; ADd with Carry for the high byte
+    adc ZH, r19 ; ADd with Carry for the high byte (ZH = ZH + r19 + Carry_Flag from add above)
 	; -- get data from lut in flash (little endian: low byte first, then high byte last)
 	lpm r19, Z+ ; read low byte, then increment Z pointer
     lpm r20, Z ; read high byte
@@ -132,14 +132,31 @@ Play_Note:
 	; ldi temp, (1<<COM1A0)
     ; sts TCCR1A, temp
 
-	End_Play_Note:
-	ret
+	rjmp End_Play_Note
 
 Note_Mute:
 	; no note (mute)
 	rcall Mute_Buzzer
-	ret
 
+End_Play_Note:
+	pop ZH
+    pop ZL
+    pop r20
+    pop r19
+    pop r18
+
+	ret
+; ======
+
+; === to mute: ===
+Mute_Buzzer:
+	; Disconnect the timer hardware from PB1 by clearing COM1A0
+    ldi temp, 0x00
+    sts TCCR1A, temp
+    ; Force the pin LOW to prevent DC current from damaging the buzzer ?
+    cbi PORTB, 1
+	ret
+; ======
 
 .equ LED_OUT2_DIR = DDRc
 .equ LED_OUT2_BANK = PORTc
