@@ -91,6 +91,54 @@
 ;    ; sts TCCR1A, temp
 ;    ret
 
+; to play a sound, load the note index into a reg, then using a LUT to get the correct value to put in ocr1a ? rather than too many branches
+; store this LUT in the flash mem
+Notes_LUT:
+	; .dw is define word
+	.dw NOTE_C3, NOTE_CS3, NOTE_D3, NOTE_DS3
+	.dw NOTE_E3, NOTE_F3, NOTE_FS3, NOTE_G3
+	; TODO: ...
+; 0x00 to 0x18
+; 0xFF will be no sound
+
+Play_Note:
+	; -- no note ?
+	cpi r17, 0xFF
+	breq Note_Mute
+
+	; -- check if OOB memory location ? outside the lut
+	cpi r17, 25 ; because 25 notes (or 0x19)
+	brge End_Play_Note ; if index >= 25, skip to end
+	; -- compute byte offset (word is 2 bytes, aka 16bits)
+	mov r18, r17 ; MOVe lut index to r18
+    clr r19 ; CLeaR r19 for the high byte of the offset
+    lsl r18 ; Logical Shift Left (mult r18 by 2)
+    rol r19 ; Rotate carry into r18 to handle numbers > 127
+	; -- set up z pointer: r31-r30 (flash mem is word-based, but `lpm` uses bytes for addresses, need to mult by 2 the note index of the lut)
+	ldi ZL, low(Note_LUT * 2)
+    ldi ZH, high(Note_LUT * 2)
+	; -- add offset to z pointer
+	add ZL, r18
+    adc ZH, r19 ; ADd with Carry for the high byte
+	; -- get data from lut in flash (little endian: low byte first, then high byte last)
+	lpm r19, Z+ ; read low byte, then increment Z pointer
+    lpm r20, Z ; read high byte
+
+	; -- write val to timer 1 (high byte written first!)
+	sts OCR1AH, r20
+    sts OCR1AL, r19
+
+	; ; optional ? unmute buzzer
+	; ldi temp, (1<<COM1A0)
+    ; sts TCCR1A, temp
+
+	End_Play_Note:
+	ret
+
+Note_Mute:
+	; no note (mute)
+	rcall Mute_Buzzer
+	ret
 
 
 .equ LED_OUT2_DIR = DDRc
