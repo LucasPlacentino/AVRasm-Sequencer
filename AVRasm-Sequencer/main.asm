@@ -50,7 +50,7 @@
 .equ NOTE_FS3 = 43242  ; 185.00 Hz (F#)
 .equ NOTE_G3  = 40815  ; 196.00 Hz
 .equ NOTE_GS3 = 38525  ; 207.65 Hz (G#)
-.equ NOTE_A3  = 36363  ; 220.00 Hz
+.equ NOTE_A3  = 36363  ; 220.00 Hz ---------
 .equ NOTE_AS3 = 34322  ; 233.08 Hz (A#)
 .equ NOTE_B3  = 32396  ; 246.94 Hz
 ; ---
@@ -63,11 +63,33 @@
 .equ NOTE_FS4 = 21621  ; 369.99 Hz (F#)
 .equ NOTE_G4  = 20407  ; 392.00 Hz
 .equ NOTE_GS4 = 19262  ; 415.30 Hz (G#)
-.equ NOTE_A4  = 18181  ; 440.00 Hz
+.equ NOTE_A4  = 18181  ; 440.00 Hz ---------
 .equ NOTE_AS4 = 17160  ; 466.16 Hz (A#)
 .equ NOTE_B4  = 16197  ; 493.88 Hz
 ; ---
 .equ NOTE_C5  = 15288  ; 523.25 Hz
+
+; to mute:
+;Mute_Buzzer:
+;	 ; Disconnect the timer hardware from PB1 by clearing COM1A0
+;    ldi temp, 0x00
+;    sts TCCR1A, temp
+;    ; Force the pin LOW to prevent DC current from damaging the buzzer
+;    cbi PORTB, 1
+;	 ret
+
+; example:
+;Play_Note_C4:
+;    ; CRITICAL: In AVR asm must write  HIGH byte of a 16-bit register first, then the LOW byte. The hardware latches it.
+;    ldi temp, high(NOTE_C4)
+;    sts OCR1AH, temp
+;    ldi temp, low(NOTE_C4)
+;    sts OCR1AL, temp
+;
+;    ; ; Ensure the timer is connected to the pin (un-mute)
+;    ; ldi temp, (1<<COM1A0)
+;    ; sts TCCR1A, temp
+;    ret
 
 
 
@@ -83,6 +105,9 @@
 .equ BZ_OUT_IDX = 1
 .equ BZ_OUT_PIN_TGL = PINb ; PINxn is PORTxn no need for DDRx for toggling
 ; we can just do SBI PINb,1 to toggle the buzzer pin
+
+; .equ BZ_PORT = PORTb
+; .equ BZ_TGL_PIN = PINb
 
 .set SW_IN_DIR = DDRb
 .set SW_IN_BANK = PORTb ;will be used for setting the pullup
@@ -124,9 +149,10 @@
 ; 8-bit counter: prescaler 256 (0b100) => 185 initial value for timer to get 880 interrupts per second
 
 
-
+; use timer 1 for the buzzer sound notes
 setup:
 	sei ;enable interrupts
+
 	;ldi R16, 1<<TOIE0 ; 0b001
 	ldi temp, 0b1
 	;sbi TIMSK0,TOIE0 ; cannot do that
@@ -150,6 +176,11 @@ setup:
     ; WGM11:0  = 00 -> Lower bits for CTC Mode 4
     ldi temp, (1<<COM1A0)
     sts TCCR1A, temp
+	; --- Configure TCCR1B
+    ; WGM13:2 = 01 -> Upper bits for CTC Mode 4 (WGM = 0100)
+    ; CS12:0  = 001 -> Prescaler = 1 (starts the timer)
+    ldi temp, (1<<WGM12) | (1<<CS10)
+    sts TCCR1B, temp
 
 	;set pins
 
