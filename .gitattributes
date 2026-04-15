@@ -2,6 +2,6 @@
 * text=auto
 
 # Declare files that will always have LF line endings on checkout.
-*.asm text eol=lf
+#*.asm text eol=lf
 
 # from https://docs.github.com/en/get-started/git-basics/configuring-git-to-handle-line-endings
