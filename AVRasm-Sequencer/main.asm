@@ -94,6 +94,20 @@ Notes_LUT:
 ; 0x00 to 0x18
 ; 0xFF will be no sound
 
+; ==== BPM LUT ===
+; BPM to ms Delay LUT ("16th" notes), rounded
+; idx 0 = 60 BPM, idx 1 = 61 BPM ...etc... idx 140 = 200 BPM
+; generated this with excel:
+BPM_Table:
+    .dw 250     ; 60 BPM
+    .dw 245     ; 61 BPM
+    .dw 241     ; 62 BPM
+    ; ... (skip to 120) ...
+    .dw 125     ; 120 BPM
+    ; ... (skip to 200) ...
+    .dw 75      ; 200 BPM
+; ======
+
 .dseg
 .org SRAM_START ; (0x0100 ?)
 Sequence: .byte 32 ; 32 bytes for the 32 steps
@@ -168,10 +182,56 @@ Mute_Buzzer:
 
 ; -- Use Timer 2 for the metronome
 ; 16MHz clock, prescaler at 64 => 250 000 ticks/sec
-; for 1ms: (250000 / 1000) - 1 = 249
+; for 1ms: (250000 / 1000) - 1 = 249 (into OCR2A)
 ; let's use a "16th-note" step (whatever that means i'm not a musician)
 ; target delay is:
 ; 60000 / (BPM * 4) = Tempo_Delay
+
+; === Update BPM ===
+; input r17 is target BPM (must be between 60 and 200 !)
+Update_BPM:
+    push r17
+    push r18
+	push r19
+    push ZL
+    push ZH
+
+    ; substract 60 to get the BPM table idx (0 to 140), because we used BPMs b/w 60 and 200
+    subi r17, 60
+
+    ; mltiply idx by 2 (because .dw uses 2 bytes)
+    mov r18, r17 ; MOVe lut index to r18 (keep r17 intact)
+    clr r19 ; CLeaR r19 for the high byte of the offset
+    lsl r18 ; Logical Shift Left (mult r18 by 2) (MSB goes in the Carry Flag (C))
+    rol r19 ; ROtate Left thrpugh carry r19, here just pulls the shifted MSB from r18 in the Carry Flag
+
+    ; set z pointer to table origin
+    ldi ZL, low(BPM_Table * 2)
+    ldi ZH, high(BPM_Table * 2)
+
+    ; add the offset to the z pointer
+    add ZL, r18
+    adc ZH, r19
+
+    ; get 16-bit delay value
+    lpm r18, Z+ ; read low byte
+    lpm r19, Z  ; read high byte
+
+    ; safely update the SRAM metronome varq
+    ; (to prevent the ISR from reading half a new value while writing it, temporarily disable interrupts)
+    cli
+    sts Tempo_Delay, r18
+    sts Tempo_Delay+1, r19
+    sei ; Re-enable interrupts
+
+    ; restore
+    pop ZH
+    pop ZL
+	pop r19
+    pop r18
+    pop r17
+    ret
+; ======
 
 
 .equ LED_OUT2_DIR = DDRc
@@ -229,7 +289,7 @@ Mute_Buzzer:
 
 ; === Setup sequence, runs once on startup ===
 setup:
-	sei ;enable interrupts
+	sei ; enable interrupts (Set global Interrupt fags)
 
 	;ldi R16, 1<<TOIE0 ; 0b001
 	ldi temp, 0b1
@@ -251,14 +311,35 @@ setup:
 
 	; -- Configure TCCR1A
     ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match
-    ; WGM11:0  = 00 -> Lower bits for CTC Mode 4
+    ; WGM11:0 = 00 -> Lower bits for CTC Mode 4
     ldi temp, (1<<COM1A0)
     sts TCCR1A, temp
 	; --- Configure TCCR1B
     ; WGM13:2 = 01 -> Upper bits for CTC Mode 4 (WGM = 0100)
-    ; CS12:0  = 001 -> Prescaler = 1 (starts the timer)
+    ; CS12:0 = 001 -> Prescaler = 1 (starts the timer)
     ldi temp, (1<<WGM12) | (1<<CS10)
     sts TCCR1B, temp
+
+	; -- Configure TCCR2A
+	; COM2A1:0 = 00 -> Normal port operation, OC2A disconnected
+    ; WGM21:0 = 10 -> Lower bits for CTC Mode 2
+    ldi temp, (1<<WGM21)
+    sts TCCR2A, temp
+	; -- Configure TCCR2B
+	; WGM22 = 0 -> Upper bit for CTC Mode 2 (WGM = 010)
+    ; CS22:0 = 100 -> Prescaler = 64 (starts the timer)
+    ldi temp, (1<<CS22)
+    sts TCCR2B, temp
+    ; -- Configure TIMSK2 (Interrupt Mask)
+    ; OCIE2A = 1 -> Enable Timer 2 Compare Match A Interrupt
+    ldi temp, (1<<OCIE2A)
+    sts TIMSK2, temp
+
+	; -- Configure OCR2A (The Ceiling Value)
+    ; 16MHz / Prescaler 64 = 250,000 ticks/sec
+    ; 250,000 / 1000Hz = 250 ticks, 0-indexed so 249:
+    ldi temp, 249
+    sts OCR2A, temp
 
 	;set pins
 
