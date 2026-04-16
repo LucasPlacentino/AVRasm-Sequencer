@@ -481,6 +481,7 @@ Sequence: .byte 32 ; 32 bytes for the 32 steps
 Step: .byte 1 ; keep traack of step number (0 to 31)
 Tick_Counter: .byte 2 ; 16bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
+Current_BPM: .byte 1 ; store current BPM
 .cseg
 
 ; === play the note from r17 (input), byte is index of note, 0x00-0x18/0x30 aka 0 to 48, or 0xFF (mute) ===
@@ -566,6 +567,8 @@ Update_BPM:
     push r19
     push ZL
     push ZH
+
+    sts Current_BPM, r17 ; store current BPM in SRAM for reference
 
     ; substract 60 to get the BPM table idx (0 to 140), because we used BPMs b/w 60 and 200
     subi r17, 60
@@ -740,6 +743,9 @@ setup:
 
     rcall Init_Sequence ; clear sequence
 
+    ldi r17, 120 ; default BPM
+    rcall Update_BPM ; set default BPM from r17
+
     rjmp loop
 ; ===#===
 
@@ -800,7 +806,7 @@ ISR_Metronome:
     sts Tick_Counter, r16
     sts Tick_Counter+1, r17
 
-    ; compare with Tempo_Delay (e.g. 750 is 200 BPM)
+    ; compare with Tempo_Delay (e.g. 1249 is 120 BPM)
     lds ZL, Tempo_Delay
     lds ZH, Tempo_Delay+1
     cp r16, ZL
@@ -1030,4 +1036,11 @@ col4row4: ; "C"
     ; TODO: implement
     rjmp loop
 
+
+btn_up:
+    ; increase BPM
+    lds r17, Current_BPM
+    cpi r17, 200
+    ; TODO: check if already at max BPM to avoid overflow
+    rjmp loop
 
