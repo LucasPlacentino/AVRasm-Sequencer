@@ -43,6 +43,7 @@
 ; ocr1a = (16MHz / (2*N*freq_sound)) - 1
 ; where N is the prescaler (N=1 ?)
 ; --- OCR1A values for each note
+; TODO: verify values in practice
 .equ NOTE_C3 = 61156 ; 130.81 Hz
 .equ NOTE_CS3 = 57723 ; 138.59 Hz (C#)
 .equ NOTE_D3 = 54484 ; 146.83 Hz
@@ -55,7 +56,8 @@
 .equ NOTE_A3 = 36363 ; 220.00 Hz ---------
 .equ NOTE_AS3 = 34322 ; 233.08 Hz (A#)
 .equ NOTE_B3 = 32396 ; 246.94 Hz
-; ---
+; --- 12 notes in an octave ; i could only use 12 notes so the bottom 4 keys are for other features
+; maybe use bottom first two keys to change octave ?
 .equ NOTE_C4 = 30577 ; 261.63 Hz
 ; or stop here ? to get only one octave but keep 3 buttons for other stuff ?
 .equ NOTE_CS4 = 28861 ; 277.18 Hz (C#)
@@ -96,7 +98,7 @@ Notes_LUT:
 	; TODO: etc...
 ; 0x00 to 0x18
 ; 0xFF will be no sound
-; ======
+; ===#===
 
 ; ==== BPM LUT (1ms res) ===
 ; BPM to ms Delay LUT ("16th" notes), rounded
@@ -245,7 +247,7 @@ BPM_Table:
     .dw 75 ; 198 BPM
     .dw 74 ; 199 BPM
     .dw 74 ; 200 BPM
-; ======
+; ===#===
 
 ; ==== BPM LUT (0.1ms res) ===
 ; BPM to ms Delay LUT ("16th" notes), rounded
@@ -394,7 +396,7 @@ BPM_Table:
     .dw 757 ; 198 BPM
     .dw 753 ; 199 BPM
     .dw 749 ; 200 BPM
-; ======
+; ===#===
 
 .dseg
 .org SRAM_START ; (0x0100 ?)
@@ -456,7 +458,7 @@ End_Play_Note:
     pop r18
 
 	ret
-; ======
+; ===#===
 
 ; === to mute: ===
 Mute_Buzzer:
@@ -466,7 +468,7 @@ Mute_Buzzer:
     ; Force the pin LOW to prevent DC current from damaging the buzzer ?
     cbi PORTB, 1
 	ret
-; ======
+; ===#===
 
 ; -- Use Timer 2 for the metronome
 ; 16MHz clock, prescaler at 64 => 250 000 ticks/sec
@@ -519,7 +521,7 @@ Update_BPM:
     pop r18
     pop r17
     ret
-; ======
+; ===#===
 
 
 .equ LED_OUT2_DIR = DDRc
@@ -579,11 +581,11 @@ Update_BPM:
 setup:
 	sei ; enable interrupts (Set global Interrupt fags)
 
+	; ~~ old code: ~~
 	;ldi R16, 1<<TOIE0 ; 0b001
 	ldi temp, 0b1
 	;sbi TIMSK0,TOIE0 ; cannot do that
 	sts TIMSK0,temp ; enable timer 0 overflow interrupt ; store to SRAM (TIMSK0 is in Extended I/O space so in SRAM)
-
 	;set timer 0 to normal mode
 	ldi temp, 0b000 ; normal mode
 	out TCCR0A,temp ; write to TCCR0A to set normal mode
@@ -591,23 +593,26 @@ setup:
 	;ldi R16, 1<<CS02 ; combine bits for prescaler 256
 	ldi temp, 0b100 ; combine bits for prescaler 256
 	out TCCR0B,temp ; write to TCCR0B to set prescaler
-
 	; timer0 initial value to get 880 interrupts per second
 	; 880Hz, f_clk prescaler 256 => 16MHz/256 => 184.977 = 185 initial value for timer to get 880 interrupts per second
 	ldi R29, 185
 	out TCNT0,R29
+	; ^^^ old code ^^^
 
+	; ---- Timer 1 (for notes/sound) ----
 	; -- Configure TCCR1A
     ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match
     ; WGM11:0 = 00 -> Lower bits for CTC Mode 4
     ldi temp, (1<<COM1A0)
     sts TCCR1A, temp
-	; --- Configure TCCR1B
+	; -- Configure TCCR1B
     ; WGM13:2 = 01 -> Upper bits for CTC Mode 4 (WGM = 0100)
     ; CS12:0 = 001 -> Prescaler = 1 (starts the timer)
     ldi temp, (1<<WGM12) | (1<<CS10)
     sts TCCR1B, temp
+	; ----#----
 
+	; ---- Timer 2 (for BPM/steps) ----
 	; -- Configure TCCR2A
 	; COM2A1:0 = 00 -> Normal port operation, OC2A disconnected
     ; WGM21:0 = 10 -> Lower bits for CTC Mode 2
@@ -622,6 +627,7 @@ setup:
     ; OCIE2A = 1 -> Enable Timer 2 Compare Match A Interrupt
     ldi temp, (1<<OCIE2A)
     sts TIMSK2, temp
+	; ----#----
 
 	; -- Configure OCR2A (ceiling value of timer 2)
     ; 16MHz / Prescaler 64 = 250,000 ticks/sec
@@ -650,37 +656,62 @@ setup:
 	cbi LED_OUT3_BANK,LED_OUT3_IDX ;clear led3 to off
 
 	rjmp loop
-; ======
+; ===#===
 
 ; === infinite loop sequence ===
 loop:
 
-	rjmp kp_polling_1 ; ?
+	rcall Update_Matrix_Display
 
-    rjmp loop
-; ======
+	;rjmp kp_polling_1 ; ? rjmp or rcall ?
+    rjmp Scan_Keypad
+	rjmp loop
+; ===#===
 
 ; === Metronome's ISR ===
 ISR_Metronome:
-	push temp
+	push r16 ; aka temp
     push r17
     push ZL
     push ZH
     in temp, SREG
     push temp
 
+	; incr 16-bit Tick Counter
+    lds r16, Tick_Counter
+    lds r17, Tick_Counter+1
+	subi r16, low(-1) ; add 1 to low byte
+    sbci r17, high(-1) ; add carry (from low byte) to high byte
+    sts Tick_Counter, r16
+    sts Tick_Counter+1, r17
+
+	; compare with Tempo_Delay (e.g. 750 is 200 BPM)
+    lds ZL, Tempo_Delay
+    lds ZH, Tempo_Delay+1
+	cp r16, ZL
+    cpc r17, ZH
+    brne End_ISR_Metronome ; if delay not reached: exit
+
+	; delay reached: reset Tick Counter to 0
+    ldi temp, 0
+    sts Tick_Counter, temp
+    sts Tick_Counter+1, temp
+
+	; advance sequencer step
+    lds temp, Current_Step
+    inc temp ; next step
 	; ...
 
-	End_Metronome_ISR:
-    ; -- restore
+	End_ISR_Metronome:
+    ; -- restore stack
     pop temp
     out SREG, temp
     pop ZH
     pop ZL
     pop r17
-    pop temp
+    pop r16
     reti
-; ======
+; ===#===
 
 
 LED2ON:
@@ -759,6 +790,7 @@ LED3OFF:
 ;		- if row x is LOW => btn pressed in Y col => row num X
 ;		- => btn pressed is row-X and col-Y
 ; - if no col is low (=all high) no btn is pressed, exit
+Scan_Keypad:
 kp_polling_1:
 	; careful: need to first modify PORT reg before modifying DDR reg.
 	; cols as inputs:
@@ -845,7 +877,7 @@ col2row2:
 col2row3:
 	; do something
 	rjmp loop
-col2row4:
+col2row4: ; "0"
 	; do something
 	rjmp loop
 
