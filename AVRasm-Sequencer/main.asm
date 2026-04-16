@@ -129,10 +129,10 @@
 .equ NOTE_A4 = 2271 ; 440.00 Hz
 .equ NOTE_AS4 = 2144 ; 466.16 Hz
 .equ NOTE_B4 = 2024 ; 493.88 Hz
-; --- 5th Octave ---
-.equ NOTE_C5 = 1910 ; 523.25 Hz
+; ; --- 5th Octave ---
+; .equ NOTE_C5 = 1910 ; 523.25 Hz
 
-.equ NB_NOTES = 49 ;
+.equ NB_NOTES = 48 ;
 ; ===#===
 
 ; example:
@@ -171,8 +171,8 @@ Note_Table:
     .dw NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4
     .dw NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4
     .dw NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4
-    ; --- octave 5 (idx 48) ---
-    .dw NOTE_C5
+;    ; --- octave 5 (idx 48) ---
+;    .dw NOTE_C5
 ; 0xFF will be no sound
 ; ===#===
 
@@ -479,8 +479,8 @@ BPM_Table:
 .org SRAM_START ; (0x0100 ?)
 Sequence: .byte 32 ; 32 bytes for the 32 steps
 Step: .byte 1 ; keep traack of step number (0 to 31)
-Tick_Counter: .byte 2 ; 16-bit counter for milliseconds
-Tempo_Delay: .byte 2 ; 16-bit delay (in ms) based on BPM, kinda rounded
+Tick_Counter: .byte 2 ; 16bit counter for milliseconds
+Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
 .cseg
 
 ; === play the note from r17 (input), byte is index of note, 0x00-0x18/0x30 aka 0 to 48, or 0xFF (mute) ===
@@ -678,35 +678,33 @@ setup:
 
 	; ---- Timer 1 (for notes/sound) ----
 	; -- Configure TCCR1A
-    ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match
-    ; WGM11:0 = 00 -> Lower bits for CTC Mode 4
+    ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match ; 1<<COM1A0
+    ; WGM11:0 = 00 -> Lower bits for CTC Mode 4 ; nothing
     ldi temp, (1<<COM1A0)
     sts TCCR1A, temp
 	; -- Configure TCCR1B
-    ; WGM13:2 = 01 -> Upper bits for CTC Mode 4 (WGM = 0100)
-    ; ; CS12:0 = 001 -> Prescaler = 1
-	; CS12:0  = 010 -> Prescaler = 8 (to be able to go to lower octaves)
+    ; WGM13:2 = 01 -> Upper bits for CTC Mode 4 (WGM = 0100) ; 1<<WGM12
+    ; ; CS12:0 = 001 -> Prescaler = 1 ; 1<<CS10
+	; CS12:0  = 010 -> Prescaler = 8 (to be able to go to lower octaves) ; 1<<CS11
     ldi temp, (1<<WGM12) | (1<<CS11)
     sts TCCR1B, temp
 	; ----#----
 
 	; ---- Timer 2 (for BPM/steps) ----
 	; -- Configure TCCR2A
-	; COM2A1:0 = 00 -> Normal port operation, OC2A disconnected
-    ; WGM21:0 = 10 -> Lower bits for CTC Mode 2
+	; COM2A1:0 = 00 -> Normal port operation, OC2A disconnected ; nothing
+    ; WGM21:0 = 10 -> Lower bits for CTC Mode 2 ; 1<<WGM21
     ldi temp, (1<<WGM21)
     sts TCCR2A, temp
 	; -- Configure TCCR2B
-	; WGM22 = 0 -> Upper bit for CTC Mode 2 (WGM = 010)
-    ; CS22:0 = 100 -> Prescaler = 64
+	; WGM22 = 0 -> Upper bit for CTC Mode 2 (WGM = 010) ; nothing
+    ; CS22:0 = 100 -> Prescaler = 64 ; 1<<CS22
     ldi temp, (1<<CS22)
     sts TCCR2B, temp
-    ; -- Configure TIMSK2 (Interrupt Mask)
+    ; -- Configure TIMSK2 (Timer Interrupt MaSK 2)
     ; OCIE2A = 1 -> Enable Timer 2 Compare Match A Interrupt
     ldi temp, (1<<OCIE2A)
     sts TIMSK2, temp
-	; ----#----
-
 	; -- Configure OCR2A (ceiling value of timer 2)
     ; 16MHz / Prescaler 64 = 250,000 ticks/sec
 	; ; 1ms resolution => 1000Hz
@@ -716,6 +714,7 @@ setup:
 	; 250,000 / 10000Hz = 25 ticks, 0-indexed so 24:
 	ldi temp, 24
     sts OCR2A, temp
+	; ----#----
 
 	;set pins
 
@@ -932,59 +931,65 @@ col4pressed:
 	rjmp loop
 
 ; --- COL 1 ---
-col1row1:
+col1row1: ; "7"
 	; do something
 	rjmp loop
-col1row2:
+col1row2: ; "4"
 	; do something
 	rjmp loop
-col1row3:
+col1row3: ; "1"
 	; do something
 	rjmp loop
-col1row4:
+col1row4: ; "A"
 	; do something
+	; decrease octave ?
+	; TODO: implement
 	rjmp loop
 
 ; --- COL 2 ---
-col2row1:
+col2row1: ; "8"
 	; do something
 	rjmp loop
-col2row2:
+col2row2: ; "5"
 	; do something
 	rjmp loop
-col2row3:
+col2row3: ; "2"
 	; do something
 	rjmp loop
 col2row4: ; "0"
 	; do something
+	; increase octave ?
+	; TODO: implement
 	rjmp loop
 
 ; --- COL 3 ---
-col3row1:
+col3row1: ; "9"
 	; do something
 	rjmp loop
-col3row2:
+col3row2: ; "6"
 	; do something
 	rjmp loop
-col3row3:
+col3row3: ; "3"
 	; do something
 	rjmp loop
-col3row4:
+col3row4: ; "B"
 	; do something
 	rjmp loop
 
 ; --- COL 4 ---
-col4row1:
+col4row1: ; "F"
 	; do something
 	rjmp loop
-col4row2:
+col4row2: ; "E"
 	; do something
 	rjmp loop
-col4row3:
+col4row3: ; "D"
 	; do something
 	rjmp loop
-col4row4:
+col4row4: ; "C"
 	; do something
+	; clear/mute note
+	; TODO: implement
 	rjmp loop
 
 
