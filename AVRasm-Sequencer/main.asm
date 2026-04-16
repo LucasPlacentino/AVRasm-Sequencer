@@ -1,10 +1,9 @@
 ;
-; AVRasm-Sequencer.asm
-;
-; PROJECT for Sensors and Microsystem Electronics
-;
-; Created: 15-04-26 12:01:41
-; Author : lucasp
+; AVRasm-Sequencer.asm :
+; PROJECT for Sensors and Microsystem Electronics, final file version
+; Date : 2026
+; Author : Lucas Placentino
+; License: MIT
 ;
 
 ; ATmega328P
@@ -19,6 +18,7 @@
 
 .def temp = r16 ; example: define alias "temp" for the register "r16"
 
+; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
 ; Timer1 reset value for overflow timing
 ; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
 ; e.g: .equ TCNT1_RESET_880 = 47354  ;440Hz (880Hz because toggle) ? A
@@ -35,13 +35,6 @@
 .equ TCNT1_RESET_AS4 = 48375 ; 466.16 Hz (A#)
 .equ TCNT1_RESET_B4 = 49338 ; 493.88 Hz
 .equ TCNT1_RESET_C5 = 50247 ; 523.25 Hz
-
-; TODO: use CTC mdoe ? (clear timer on compare match)
-; load value into OCR1A
-; automatically resets timer and toggles pin (COM1A0 = 1) on the clock edge, it's more precise for slightly better sound
-; buzzer needs to be connected to OC1A pin (PB1), it is thanks!!
-; ocr1a = (16MHz / (2*N*freq_sound)) - 1
-; where N is the prescaler
 ; --- OCR1A values for each note (prescaler of 1):
 ; TODO: verify values in practice
 .equ NOTE_C3 = 61156 ; 130.81 Hz
@@ -74,7 +67,14 @@
 .equ NOTE_B4 = 16197 ; 493.88 Hz
 ; ---
 .equ NOTE_C5 = 15288 ; 523.25 Hz
+; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+; TODO: use CTC mdoe ? (clear timer on compare match)
+; load value into OCR1A
+; automatically resets timer and toggles pin (COM1A0 = 1) on the clock edge, it's more precise for slightly better sound
+; buzzer needs to be connected to OC1A pin (PB1), it is thanks!!
+; ocr1a = (16MHz / (2*N*freq_sound)) - 1
+; where N is the prescaler
 ; === OCR1A values for each note (prescaler = 8): ===
 ; generated this using excel:
 ; --- 1st Octave ---
