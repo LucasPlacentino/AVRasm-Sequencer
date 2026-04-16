@@ -41,8 +41,8 @@
 ; automatically resets timer and toggles pin (COM1A0 = 1) on the clock edge, it's more precise for slightly better sound
 ; buzzer needs to be connected to OC1A pin (PB1), it is thanks!!
 ; ocr1a = (16MHz / (2*N*freq_sound)) - 1
-; where N is the prescaler (N=1 ?)
-; --- OCR1A values for each note
+; where N is the prescaler
+; --- OCR1A values for each note (prescaler of 1):
 ; TODO: verify values in practice
 .equ NOTE_C3 = 61156 ; 130.81 Hz
 .equ NOTE_CS3 = 57723 ; 138.59 Hz (C#)
@@ -75,6 +75,66 @@
 ; ---
 .equ NOTE_C5 = 15288 ; 523.25 Hz
 
+; === OCR1A values for each note (prescaler = 8): ===
+; generated this using excel:
+; --- 1st Octave ---
+.equ NOTE_C1 = 30577 ; 32.70 Hz
+.equ NOTE_CS1 = 28861 ; 34.65 Hz
+.equ NOTE_D1 = 27241 ; 36.71 Hz
+.equ NOTE_DS1 = 25712 ; 38.89 Hz
+.equ NOTE_E1 = 24269 ; 41.20 Hz
+.equ NOTE_F1 = 22907 ; 43.65 Hz
+.equ NOTE_FS1 = 21621 ; 46.25 Hz
+.equ NOTE_G1 = 20407 ; 49.00 Hz
+.equ NOTE_GS1 = 19262 ; 51.91 Hz
+.equ NOTE_A1 = 18181 ; 55.00 Hz
+.equ NOTE_AS1 = 17160 ; 58.27 Hz
+.equ NOTE_B1 = 16197 ; 61.74 Hz
+; --- 2nd Octave ---
+.equ NOTE_C2 = 15288 ; 65.41 Hz
+.equ NOTE_CS2 = 14430 ; 69.30 Hz
+.equ NOTE_D2 = 13620 ; 73.42 Hz
+.equ NOTE_DS2 = 12855 ; 77.78 Hz
+.equ NOTE_E2 = 12134 ; 82.41 Hz
+.equ NOTE_F2 = 11453 ; 87.31 Hz
+.equ NOTE_FS2 = 10810 ; 92.50 Hz
+.equ NOTE_G2 = 10203; 98.00 Hz
+.equ NOTE_GS2 = 9630 ; 103.83 Hz
+.equ NOTE_A2 = 9090 ; 110.00 Hz
+.equ NOTE_AS2 = 8579 ; 116.54 Hz
+.equ NOTE_B2 = 8098 ; 123.47 Hz
+; --- 3rd Octave ---
+.equ NOTE_C3 = 7644 ; 130.81 Hz
+.equ NOTE_CS3 = 7214 ; 138.59 Hz
+.equ NOTE_D3 = 6809 ; 146.83 Hz
+.equ NOTE_DS3 = 6427 ; 155.56 Hz
+.equ NOTE_E3 = 6067 ; 164.81 Hz
+.equ NOTE_F3 = 5726 ; 174.61 Hz
+.equ NOTE_FS3 = 5404 ; 185.00 Hz
+.equ NOTE_G3 = 5101 ; 196.00 Hz
+.equ NOTE_GS3 = 4815 ; 207.65 Hz
+.equ NOTE_A3 = 4544 ; 220.00 Hz
+.equ NOTE_AS3 = 4289 ; 233.08 Hz
+.equ NOTE_B3 = 4049 ; 246.94 Hz
+; --- 4th Octave ---
+.equ NOTE_C4 = 3822 ; 261.63 Hz
+.equ NOTE_CS4 = 3607 ; 277.18 Hz
+.equ NOTE_D4 = 3404 ; 293.66 Hz
+.equ NOTE_DS4 = 3213 ; 311.13 Hz
+.equ NOTE_E4 = 3033 ; 329.63 Hz
+.equ NOTE_F4 = 2862 ; 349.23 Hz
+.equ NOTE_FS4 = 2702 ; 369.99 Hz
+.equ NOTE_G4 = 2550 ; 392.00 Hz
+.equ NOTE_GS4 = 2407 ; 415.30 Hz
+.equ NOTE_A4 = 2271 ; 440.00 Hz
+.equ NOTE_AS4 = 2144 ; 466.16 Hz
+.equ NOTE_B4 = 2024 ; 493.88 Hz
+; --- 5th Octave ---
+.equ NOTE_C5 = 1910 ; 523.25 Hz
+
+.equ NB_NOTES = 49 ;
+; ===#===
+
 ; example:
 ;Play_Note_C4:
 ;    ; CRITICAL: In AVR asm must write  HIGH byte of a 16-bit register first, then the LOW byte. The hardware latches it.
@@ -88,17 +148,34 @@
 ;    ; sts TCCR1A, temp
 ;    ret
 
+
 ; === Notes LUT ===
-; to play a sound, load the note index into a reg, then using a LUT to get the correct value to put in ocr1a ? rather than too many branches
-; store this LUT in the flash mem
-Notes_LUT:
-	; .dw is define word
-	.dw NOTE_C3, NOTE_CS3, NOTE_D3, NOTE_DS3
-	.dw NOTE_E3, NOTE_F3, NOTE_FS3, NOTE_G3
-	; TODO: etc...
-; 0x00 to 0x18
+; to play a sound, load the note index into a reg (r17), then using a LUT to get the correct value to put in ocr1a ? rather than too many branches
+; store this LUT in the flash mem:
+; 49 notes (idx 0 to 48)
+Note_Table:
+; .dw is define word(s)
+    ; --- octave 1 (idx 0 to 11) ---
+    .dw NOTE_C1, NOTE_CS1, NOTE_D1, NOTE_DS1
+    .dw NOTE_E1, NOTE_F1, NOTE_FS1, NOTE_G1
+    .dw NOTE_GS1, NOTE_A1, NOTE_AS1, NOTE_B1
+    ; --- octave 2 (ixd 12 to 23) ---
+    .dw NOTE_C2, NOTE_CS2, NOTE_D2, NOTE_DS2
+    .dw NOTE_E2, NOTE_F2, NOTE_FS2, NOTE_G2
+    .dw NOTE_GS2, NOTE_A2, NOTE_AS2, NOTE_B2
+    ; --- octave 3 (idx 24 to 35) ---
+    .dw NOTE_C3, NOTE_CS3, NOTE_D3, NOTE_DS3
+    .dw NOTE_E3, NOTE_F3, NOTE_FS3, NOTE_G3
+    .dw NOTE_GS3, NOTE_A3, NOTE_AS3, NOTE_B3
+    ; --- octave 4 (idx 36 to 47) ---
+    .dw NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4
+    .dw NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4
+    .dw NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4
+    ; --- octave 5 (idx 48) ---
+    .dw NOTE_C5
 ; 0xFF will be no sound
 ; ===#===
+
 
 ; ==== BPM LUT (1ms res) ===
 ; BPM to ms Delay LUT ("16th" notes), rounded
@@ -406,7 +483,7 @@ Tick_Counter: .byte 2 ; 16-bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16-bit delay (in ms) based on BPM, kinda rounded
 .cseg
 
-; === play the note from r17 (input), byte is index of note, 0x00-0x18 or 0xFF ===
+; === play the note from r17 (input), byte is index of note, 0x00-0x18/0x30 aka 0 to 48, or 0xFF (mute) ===
 Play_Note:
 	push r18
     push r19
@@ -418,7 +495,7 @@ Play_Note:
 	breq Note_Mute
 
 	; -- check if OOB memory location ? outside the lut
-	cpi r17, 25 ; because 25 notes (or 0x19)
+	cpi r17, NB_NOTES ; because 25/49 notes (or 0x19) => .set/.equ above
 	brge End_Play_Note ; if index >= 25, skip to end
 	; -- compute byte offset (word is 2 bytes, aka 16bits), 16 bit mult by 2:
 	mov r18, r17 ; MOVe lut index to r18 (keep r17 intact)
@@ -607,8 +684,9 @@ setup:
     sts TCCR1A, temp
 	; -- Configure TCCR1B
     ; WGM13:2 = 01 -> Upper bits for CTC Mode 4 (WGM = 0100)
-    ; CS12:0 = 001 -> Prescaler = 1 (starts the timer)
-    ldi temp, (1<<WGM12) | (1<<CS10)
+    ; ; CS12:0 = 001 -> Prescaler = 1
+	; CS12:0  = 010 -> Prescaler = 8 (to be able to go to lower octaves)
+    ldi temp, (1<<WGM12) | (1<<CS11)
     sts TCCR1B, temp
 	; ----#----
 
@@ -620,7 +698,7 @@ setup:
     sts TCCR2A, temp
 	; -- Configure TCCR2B
 	; WGM22 = 0 -> Upper bit for CTC Mode 2 (WGM = 010)
-    ; CS22:0 = 100 -> Prescaler = 64 (starts the timer)
+    ; CS22:0 = 100 -> Prescaler = 64
     ldi temp, (1<<CS22)
     sts TCCR2B, temp
     ; -- Configure TIMSK2 (Interrupt Mask)
