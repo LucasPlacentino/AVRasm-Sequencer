@@ -517,9 +517,13 @@ Play_Note:
 	sts OCR1AH, r20
     sts OCR1AL, r19
 
-	; ; optional ? unmute buzzer
-	; ldi temp, (1<<COM1A0)
-    ; sts TCCR1A, temp
+	; -- check if switch is off (disable sound)
+	sbis SW_SENSE, SW_I ; Skip if Bit in I/o reg is Set
+	rjmp Note_Mute ; disable sound if input pin of switch is low
+
+	; -- unmute buzzer
+	ldi temp, (1<<COM1A0)
+    sts TCCR1A, temp
 
 	rjmp End_Play_Note
 
@@ -539,10 +543,10 @@ End_Play_Note:
 
 ; === to mute: ===
 Mute_Buzzer:
-	; Disconnect the timer hardware from PB1 by clearing COM1A0
+	; disconnect the timer "hardware" from PB1 by clearing COM1A0, this mutes the buzzer
     ldi temp, 0x00
     sts TCCR1A, temp
-    ; Force the pin LOW to prevent DC current from damaging the buzzer ?
+    ; force pin LOW to prevent DC current from damaging the buzzer ?
     cbi PORTB, 1
 	ret
 ; ===#===
@@ -601,28 +605,30 @@ Update_BPM:
 ; ===#===
 
 
-.equ LED_OUT2_DIR = DDRc
-.equ LED_OUT2_BANK = PORTc
-.equ LED_OUT2_IDX = 2 ; or PC2
-.equ LED_OUT3_DIR = DDRc
-.equ LED_OUT3_BANK = PORTc
-.equ LED_OUT3_IDX = 3 ; or PC3
+; -- LEDs
+.equ LED2_D = DDRc
+.equ LED2_P = PORTc
+.equ LED2_I = 2 ; or PC2
+.equ LED3_D = DDRc
+.equ LED3_P = PORTc
+.equ LED3_I = 3 ; or PC3
 
-.equ BZ_OUT_DIR = DDRb
-.equ BZ_OUT_BANK = PORTb
-.equ BZ_OUT_IDX = 1
-.equ BZ_OUT_PIN_TGL = PINb ; PINxn is PORTxn no need for DDRx for toggling
-; we can just do SBI PINb,1 to toggle the buzzer pin
-
+; ;buzzer
+; .equ BZ_OUT_DIR = DDRb
+; .equ BZ_OUT_BANK = PORTb
+; .equ BZ_OUT_IDX = 1
+; .equ BZ_OUT_PIN_TGL = PINb ; PINxn is PORTxn no need for DDRx for toggling
+; ; we can just do SBI PINb,1 to toggle the buzzer pin
 ; .equ BZ_PORT = PORTb
 ; .equ BZ_TGL_PIN = PINb
 
-.set SW_IN_DIR = DDRb
-.set SW_IN_BANK = PORTb ;will be used for setting the pullup
-.set SW_IN_IDX = 0
-.set SW_IN_SENSE = PINb ; or directly PINb0 ?
+; -- switch
+.equ SW_D = DDRb
+.equ SW_P = PORTb ; to set pullup
+.equ SW_I = 0
+.equ SW_SENSE = PINb ; or direclty PINb0 ?
 
-;keypad
+; -- keypad
 .equ KP_PIN = PINd
 .equ KP_DDR = DDRd
 .equ KP_PORT = PORTd
@@ -716,26 +722,58 @@ setup:
     sts OCR2A, temp
 	; ----#----
 
-	;set pins
 
-	;;sw input
-	;cbi SW_IN_DIR,SW_IN_IDX ;clear bit i/o reg ;set dir of pin to 0 meaning input
-	;sbi SW_IN_BANK,SW_IN_IDX ;set bit i/o reg ;set pullup of pin to enabled
+	; ;buzzer output
+	; sbi BZ_OUT_DIR,BZ_OUT_IDX ;set buzzer out pin dir to output(1)
+	; cbi BZ_OUT_BANK,BZ_OUT_IDX ;clear buzzer to off
 
-	;buzzer output
-	sbi BZ_OUT_DIR,BZ_OUT_IDX ;set buzzer out pin dir to output(1)
-	cbi BZ_OUT_BANK,BZ_OUT_IDX ;clear buzzer to off
 
-	;led output
-	sbi LED_OUT2_DIR,LED_OUT2_IDX ;set led2 out pin dir to output(1)
-	cbi LED_OUT2_BANK,LED_OUT2_IDX ;clear led2 to off
-	sbi LED_OUT3_DIR,LED_OUT3_IDX ;set led3 out pin dir to output(1)
-	cbi LED_OUT3_BANK,LED_OUT3_IDX ;clear led3 to off
+	; -- switch input
+	cbi SW_D, SW_I ; dir pin to 0 meaning input
+	sbi SW_P, SW_I ; enable pullup for this input pin
+
+	; -- leds output
+	sbi LED2_D,LED2_I ;set led2 out pin dir to output(1)
+	cbi LED2_P,LED2_I ;clear led2 to off
+	sbi LED3_D,LED3_I ;set led3 out pin dir to output(1)
+	cbi LED3_P,LED3_I ;clear led3 to off
+
+	rcall Init_Sequence ; clear sequence
 
 	rjmp loop
 ; ===#===
 
-; === infinite loop sequence ===
+; === Clear Sequence (stratup) ===
+Init_Sequence:
+	push ZL
+	push ZH
+	push r17
+	push temp
+
+    ; z pointer to base address of the sequence in SRAM
+    ldi ZL, low(Sequence)
+    ldi ZH, high(Sequence)
+    ; load rest/mute value
+    ldi temp, 0xFF ; 0xFF means mute
+	ldi temp, NOTE_A3 ; A (3rd octave) FIXME: for testing
+    ; set below loop duration to the 32 steps
+    ldi r17, 32
+Fill_Sequence:
+    ; store rest/mute value in sequence and auto-increment z pointer to next byte in SRAM
+    st Z+, temp
+    ; decr counter and loop if not zero
+    dec r17
+    brne Fill_Sequence
+	; Sequence is initialized with all mutes/rests
+
+	pop temp
+	pop r17
+	pop ZH
+	pop ZL
+    ret
+; ===#===
+
+; === infinite loop (right after setup) ===
 loop:
 
 	rcall Update_Matrix_Display
