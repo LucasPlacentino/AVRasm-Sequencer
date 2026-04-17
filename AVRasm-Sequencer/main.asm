@@ -18,6 +18,17 @@
 
 .def temp = r16 ; example: define alias "temp" for the register "r16"
 
+.dseg ; define data segment for SRAM
+.org SRAM_START ; (0x0100 ?)
+Sequence: .byte 32 ; 32 bytes for the 32 steps
+Step: .byte 1 ; keep traack of step number (0 to 31)
+Tick_Counter: .byte 2 ; 16bit counter for milliseconds
+Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
+Current_BPM: .byte 1 ; store current BPM
+Prev_Btn_Down: .byte 1 ; store previous joystick down state (for edge detection)
+Prev_Btn_Up: .byte 1 ; store previous joystick up state (for edge detection)
+.cseg
+
 ; ; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
 ; ; Timer1 reset value for overflow timing
 ; ; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
@@ -475,15 +486,6 @@ BPM_Table:
     .dw 749 ; 200 BPM
 ; ===#===
 
-.dseg ; define data segment for SRAM
-.org SRAM_START ; (0x0100 ?)
-Sequence: .byte 32 ; 32 bytes for the 32 steps
-Step: .byte 1 ; keep traack of step number (0 to 31)
-Tick_Counter: .byte 2 ; 16bit counter for milliseconds
-Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
-Current_BPM: .byte 1 ; store current BPM
-.cseg
-
 ; === play the note from r17 (input), byte is index of note, 0x00-0x18/0x30 aka 0 to 48, or 0xFF (mute) ===
 Play_Note:
     push r18
@@ -745,6 +747,10 @@ setup:
 
     ldi r17, 120 ; default BPM
     rcall Update_BPM ; set default BPM from r17
+
+    ldi temp, 0 ; default joystick state
+    sts Prev_Btn_Down, temp
+    sts Prev_Btn_Up, temp
 
     rjmp loop
 ; ===#===
@@ -1038,9 +1044,38 @@ col4row4: ; "C"
 
 
 btn_up:
-    ; increase BPM
+    ; -- edge detection
+    lds r17, Prev_Btn_Up
+    cp temp, r17
+    breq Skip_Up_Check ; if state hasn't changed, do nothing
+    sts Prev_Btn_Up, temp ; Save new state
+    cpi r16, 1
+    brne Skip_Up_Check ; if it changed to 0, do nothing
+    ; -- increase BPM
     lds r17, Current_BPM
-    cpi r17, 200
-    ; TODO: check if already at max BPM to avoid overflow
+    cpi r17, 200 ; ComPare Immediate (with max BPM=200)
+    brge btn_up_end ; Branch if Greater or Equal (if BPM >= 200, skip incrementing)
+    inc r17
+    rcall Update_BPM ; will save it to SRAM
+    btn_up_end:
+    Skip_Up_Check:
+    rjmp loop
+
+btn_down:
+    ; -- edge detection
+    lds r17, Prev_Btn_Down
+    cp temp, r17
+    breq Skip_Down_Check ; if state hasn't changed, do nothing
+    sts Prev_Btn_Down, temp ; Save new state
+    cpi r16, 1
+    brne Skip_Down_Check ; if it changed to 0, do nothing
+    ; -- decrease BPM
+    lds r17, Current_BPM
+    cpi r17, 60 ; ComPare Immediate (with min BPM=60)
+    brle btn_down_end ; Branch if Less or Equal (if BPM <= 60, skip decrementing)
+    dec r17
+    rcall Update_BPM ; will save it to SRAM
+    btn_down_end:
+    Skip_Down_Check:
     rjmp loop
 
