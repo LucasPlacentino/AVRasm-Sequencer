@@ -54,7 +54,17 @@ Prev_Btn_Up: .byte 1 ; store previous joystick up state (for edge detection)
 .equ SW_D = DDRb
 .equ SW_P = PORTb ; to set pullup
 .equ SW_I = 0
-.equ SW_SENSE = PINb ; or direclty PINb0 ?
+.equ SW_SENSE = PINb
+
+; -- joystick
+; TODO: how to handle the 4 directions?
+.equ JS_BTN_D = DDRb
+.equ JS_BTN_P = PORTb ; to set pullup
+.equ JS_BTN_I = 2
+.equ JS_BTN_SENSE = PINb
+; need to use the ADC for the joystick directions
+
+
 
 ; -- keypad
 .equ KP_PIN = PINd
@@ -594,7 +604,6 @@ Mute_Buzzer:
     ldi temp, 0b00 ; COM1A1:0 = 00 -> normal operation (OC1A disconnected) ; just 0
     sts TCCR1A, temp
     ; force pin LOW to prevent DC current from damaging the buzzer ?
-    ;cbi PORTB, 1
     cbi BZ_P, BZ_I
     ret
 ; ===#===
@@ -643,7 +652,7 @@ Update_BPM:
     cli
     sts Tempo_Delay, r18
     sts Tempo_Delay+1, r19
-    sei ; Re-enable interrupts
+    sei ; reenable interrupts
 
     ; restore
     pop ZH
@@ -791,10 +800,16 @@ Fill_Sequence:
 ; === infinite loop (right after setup) ===
 loop:
 
-    rcall Update_Matrix_Display
+    rjmp User_Inputs ; handle user inputs (joystick, keypad)
 
+    rjmp loop
+; ===#===
+
+; === handle user inputs (joystick, keypad) ===
+User_Inputs:
+    rcall Handle_Joystick
     ;rjmp kp_polling_1 ; ? rjmp or rcall ?
-    rjmp Scan_Keypad
+    rcall Scan_Keypad ; ? rjmp or rcall ?
     rjmp loop
 ; ===#===
 
@@ -843,6 +858,8 @@ ISR_Metronome:
     reti
 ; ===#===
 
+Handle_Joystick:
+    
 
 LED2ON:
     ; LOW enable
@@ -905,8 +922,7 @@ LED3OFF:
     rjmp @3 ; rjmp to fourth arg of macro
 
     rjmp no_kp_pressed
-
-    ;ret
+    ret ; i guess shoudln't happen
 .endmacro
 ; ===#===
 
@@ -957,95 +973,95 @@ kp_polling_1:
 
     ; nothing was pressed
     rjmp no_kp_pressed
-    ;ret
+    ret ; i guess shoudln't happen
 
 no_kp_pressed:
     ; do something/nothing ?
-    rjmp loop
+    ret
 
 col1pressed:
     ; col Y=1
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col1row1,col1row2,col1row3,col1row4 ; macro with args to rjmp to corresponding label
     ; don't happen:
-    rjmp loop
+    ret
 col2pressed:
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col2row1,col2row2,col2row3,col2row4 ; macro with args to rjmp to corresponding label
     ; don't happen:
-    rjmp loop
+    ret
 col3pressed:
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col3row1,col3row2,col3row3,col3row4 ; macro with args to rjmp to corresponding label
     ; don't happen:
-    rjmp loop
+    ret
 col4pressed:
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col4row1,col4row2,col4row3,col4row4 ; macro with args to rjmp to corresponding label
     ; don't happen:
-    rjmp loop
+    ret
 
 ; --- COL 1 ---
 col1row1: ; "7"
     ; do something
-    rjmp loop
+    ret
 col1row2: ; "4"
     ; do something
-    rjmp loop
+    ret
 col1row3: ; "1"
     ; do something
-    rjmp loop
+    ret
 col1row4: ; "A"
     ; do something
     ; decrease octave ?
     ; TODO: implement
-    rjmp loop
+    ret
 
 ; --- COL 2 ---
 col2row1: ; "8"
     ; do something
-    rjmp loop
+    ret
 col2row2: ; "5"
     ; do something
-    rjmp loop
+    ret
 col2row3: ; "2"
     ; do something
-    rjmp loop
+    ret
 col2row4: ; "0"
     ; do something
     ; increase octave ?
     ; TODO: implement
-    rjmp loop
+    ret
 
 ; --- COL 3 ---
 col3row1: ; "9"
     ; do something
-    rjmp loop
+    ret
 col3row2: ; "6"
     ; do something
-    rjmp loop
+    ret
 col3row3: ; "3"
     ; do something
-    rjmp loop
+    ret
 col3row4: ; "B"
     ; do something
-    rjmp loop
+    ret
 
 ; --- COL 4 ---
 col4row1: ; "F"
     ; do something
-    rjmp loop
+    ret
 col4row2: ; "E"
     ; do something
-    rjmp loop
+    ret
 col4row3: ; "D"
     ; do something
-    rjmp loop
+    ret
 col4row4: ; "C"
     ; do something
     ; clear/mute note
     ; TODO: implement
-    rjmp loop
+    ret
 ; ===#===
 
 
@@ -1065,7 +1081,7 @@ btn_up:
     rcall Update_BPM ; will save it to SRAM
     btn_up_end:
     Skip_Up_Check:
-    rjmp loop
+    ret
 
 btn_down:
     ; -- edge detection
@@ -1083,5 +1099,5 @@ btn_down:
     rcall Update_BPM ; will save it to SRAM
     btn_down_end:
     Skip_Down_Check:
-    rjmp loop
+    ret
 
