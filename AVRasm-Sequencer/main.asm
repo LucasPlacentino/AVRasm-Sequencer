@@ -29,6 +29,50 @@ Prev_Btn_Down: .byte 1 ; store previous joystick down state (for edge detection)
 Prev_Btn_Up: .byte 1 ; store previous joystick up state (for edge detection)
 .cseg
 
+; -- LEDs
+.equ LED2_D = DDRc
+.equ LED2_P = PORTc
+.equ LED2_I = 2 ; or PC2
+.equ LED3_D = DDRc
+.equ LED3_P = PORTc
+.equ LED3_I = 3 ; or PC3
+
+; ;buzzer
+; .equ BZ_OUT_DIR = DDRb
+; .equ BZ_OUT_BANK = PORTb
+; .equ BZ_OUT_IDX = 1
+; .equ BZ_OUT_PIN_TGL = PINb ; PINxn is PORTxn no need for DDRx for toggling
+; ; we can just do SBI PINb,1 to toggle the buzzer pin
+; .equ BZ_PORT = PORTb
+; .equ BZ_TGL_PIN = PINb
+
+; -- buzzer
+.equ BZ_P = PORTb
+.equ BZ_I = 1
+
+; -- switch
+.equ SW_D = DDRb
+.equ SW_P = PORTb ; to set pullup
+.equ SW_I = 0
+.equ SW_SENSE = PINb ; or direclty PINb0 ?
+
+; -- keypad
+.equ KP_PIN = PINd
+.equ KP_DDR = DDRd
+.equ KP_PORT = PORTd
+; see schematic:
+; row1->4 = bit7->4 of PD
+.equ ROW1 = 7
+.equ ROW2 = 6
+.equ ROW3 = 5
+.equ ROW4 = 4
+; col1->4 = bit3->0 of PD
+.equ COL1 = 3
+.equ COL2 = 2
+.equ COL3 = 1
+.equ COL4 = 0
+
+
 ; ; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
 ; ; Timer1 reset value for overflow timing
 ; ; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
@@ -525,7 +569,7 @@ Play_Note:
     rjmp Note_Mute ; disable sound if input pin of switch is low
 
     ; -- unmute buzzer
-    ldi temp, (1<<COM1A0)
+    ldi temp, (1<<COM1A0) ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match (TCCR1A) ; 1<<COM1A0
     sts TCCR1A, temp
 
     rjmp End_Play_Note
@@ -547,10 +591,11 @@ End_Play_Note:
 ; === to mute: ===
 Mute_Buzzer:
     ; disconnect the timer "hardware" from PB1 by clearing COM1A0, this mutes the buzzer
-    ldi temp, 0x00
+    ldi temp, 0b00 ; COM1A1:0 = 00 -> normal operation (OC1A disconnected) ; just 0
     sts TCCR1A, temp
     ; force pin LOW to prevent DC current from damaging the buzzer ?
-    cbi PORTB, 1
+    ;cbi PORTB, 1
+    cbi BZ_P, BZ_I
     ret
 ; ===#===
 
@@ -608,48 +653,6 @@ Update_BPM:
     pop r17
     ret
 ; ===#===
-
-
-; -- LEDs
-.equ LED2_D = DDRc
-.equ LED2_P = PORTc
-.equ LED2_I = 2 ; or PC2
-.equ LED3_D = DDRc
-.equ LED3_P = PORTc
-.equ LED3_I = 3 ; or PC3
-
-; ;buzzer
-; .equ BZ_OUT_DIR = DDRb
-; .equ BZ_OUT_BANK = PORTb
-; .equ BZ_OUT_IDX = 1
-; .equ BZ_OUT_PIN_TGL = PINb ; PINxn is PORTxn no need for DDRx for toggling
-; ; we can just do SBI PINb,1 to toggle the buzzer pin
-; .equ BZ_PORT = PORTb
-; .equ BZ_TGL_PIN = PINb
-
-; -- switch
-.equ SW_D = DDRb
-.equ SW_P = PORTb ; to set pullup
-.equ SW_I = 0
-.equ SW_SENSE = PINb ; or direclty PINb0 ?
-
-; -- keypad
-.equ KP_PIN = PINd
-.equ KP_DDR = DDRd
-.equ KP_PORT = PORTd
-; see schematic:
-; row1->4 = bit7->4 of PD
-.equ ROW1 = 7
-.equ ROW2 = 6
-.equ ROW3 = 5
-.equ ROW4 = 4
-; col1->4 = bit3->0 of PD
-.equ COL1 = 3
-.equ COL2 = 2
-.equ COL3 = 1
-.equ COL4 = 0
-
-
 
 
 
@@ -865,7 +868,7 @@ LED3OFF:
 ;    ret
 
 
-
+; === Keypad scanning/polling routine step 2 ===
 ; making this a macro can make it more elegant
 ;KP_POLLING_2:
 .macro KP_POLLING_2
@@ -905,7 +908,9 @@ LED3OFF:
 
     ;ret
 .endmacro
+; ===#===
 
+; === Keypad scanning/polling routine ===
 ; this does the "2-step method" switching for the keypad
 ; - config all rows output, set them LOW
 ; - config all cols input, check which low
@@ -1041,6 +1046,7 @@ col4row4: ; "C"
     ; clear/mute note
     ; TODO: implement
     rjmp loop
+; ===#===
 
 
 btn_up:
