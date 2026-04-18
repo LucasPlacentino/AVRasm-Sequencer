@@ -63,7 +63,10 @@ Prev_Btn_Up: .byte 1 ; store previous joystick up state (for edge detection)
 .equ JS_BTN_I = 2
 .equ JS_BTN_SENSE = PINb
 ; need to use the ADC for the joystick directions
-
+.equ JS_X_D = DDRc
+.equ JS_X_I = 0 ; ADC0
+.equ JS_Y_D = DDRc
+.equ JS_Y_I = 1 ; ADC1
 
 
 ; -- keypad
@@ -739,6 +742,23 @@ setup:
     sts OCR2A, temp
     ; ----#----
 
+    ; ---- ADC (for joystick) ----
+    ; -- configure joystick (ADC) input pins
+    cbi JS_X_D, JS_X_I ; set joystick x dir pin to input (0)
+    cbi JS_Y_D, JS_Y_I ; set joystick y dir pin to input (0)
+    ; -- configure ADMUX (multiplexer selection register)
+    ; REFS0 = 1 -> AVCC (analog supply current) as voltage reference
+    ; ADLAR = 1 -> ADC left adjust the result (only want 8-bit precision so we only read from ADCH)
+    ; MUX3:0 = 0000 -> default: ADC0 (PC0 aka x-axis)
+    ldi temp, (1<<REFS0) | (1<<ADLAR) ; no bit for mux since 0
+    sts ADMUX, temp
+    ; -- configure ADCSRA (ADC Control and Status Register A)
+    ; ADEN = 1 -> ADC enable
+    ; ADPS2:0 = 111 -> prescaler of 128 (16MHz/128=125kHz ADC clock)
+    ldi temp, (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0)
+    sts ADCSRA, temp
+    ; ----#----
+
 
     ; ;buzzer output
     ; sbi BZ_OUT_DIR,BZ_OUT_IDX ;set buzzer out pin dir to output(1)
@@ -858,21 +878,98 @@ ISR_Metronome:
     reti
 ; ===#===
 
+; === handle joystick inputs ===
 Handle_Joystick:
-    
+    ; TODO: check direction (up is LOW ? or vice versa, etc)
+    ; -- x-asix
+    ldi r18, 0 ; joystick x-axis
+    rcall Read_ADC ; read ADC value of joystick, store result in r19
+    cpi r19, 192 ; compare with high threshold
+    brsh joystick_right
+    cpi r19, 64 ; compare with low threshold
+    brlo joystick_left
+    ; -- y-axis
+    ldi r18, 1 ; joystick y-axis
+    rcall Read_ADC ; read ADC value of joystick, store result in r19
+    cpi r19, 192 ; compare with high threshold
+    brsh joystick_down
+    cpi r19, 64 ; compare with low threshold
+    brlo joystick_up
 
-LED2ON:
+    ; -- joystick in center
+    ; DEBUG:
+    rcall joystick_center
+
+    ret
+
+joystick_left:
+    ; move to previous step
+    ret
+joystick_right:
+    ; move to next step
+    ret
+joystick_down:
+    ; decrease BPM
+    rcall decr_bpm
+    rcall LED3_ON ; FIXME: DEBUG
+    ret
+joystick_up:
+    ; increase BPM
+    rcall incr_bpm
+    rcall LED2_ON ; FIXME: DEBUG
+    ret
+
+; FIXME: for DEBUG:
+joystick_center:
+    rcall LED2_OFF
+    rcall LED3_OFF
+    ret
+
+Read_ADC:
+    ; input: r18 = ADC channel to read (0-7)
+    ; output: r19 = ADC value (0-255)
+    push temp
+
+    ; -- set channel
+    ; TODO: necessary ?
+    andi r18, 0b00001111 ; channel must be 0-15 because MUX3:0 are only 4 bits
+    ori r18, (1<<REFS0) | (1<<ADLAR) ; apply reference and left-adjust bits again (see setup)
+    sts ADMUX, r18 ; write to ADMUX to set channel (and reference/adjust bits again like in setup)
+
+
+
+    ; -- start conversion
+    lds temp, ADCSRA ; read current value of ADC Control and Status Register A
+    ori temp, (1<<ADSC) ; set the ADC Start Conversion bit
+    sts ADCSRA, temp
+
+    Wait_For_ADC:
+    ; -- wait for the conversion end
+    ; QDC hardware will automatically clear the ADSC bit when done
+    lds temp, ADCSRA
+    sbrc temp, ADSC ; skip next if ADSC is 0
+    rjmp Wait_For_ADC ; loop back up
+
+    ; -- get value result
+    lds r19, ADCH ; output (read only the high byte for 8-bit resolution)
+
+    ; restore
+    pop temp
+    ret
+; ===#===
+
+LED2_ON:
     ; LOW enable
     cbi LED_OUT2_BANK,LED_OUT2_IDX ;set bit of led to high
     ret
-LED2OFF:
+LED2_OFF:
     sbi LED_OUT2_BANK,LED_OUT2_IDX ;set bit of led to low
     ret
-LED3ON:
+LED3_ON:
     ; LOW enable
     cbi LED_OUT3_BANK,LED_OUT3_IDX ;set bit of led to high
     ret
-LED3OFF:
+LED3_OFF:
     sbi LED_OUT3_BANK,LED_OUT3_IDX ;set bit of led to low
     ret
 ;BUZON:
@@ -1065,7 +1162,7 @@ col4row4: ; "C"
 ; ===#===
 
 
-btn_up:
+incr_bpm:
     ; -- edge detection
     lds r17, Prev_Btn_Up
     cp temp, r17
@@ -1083,7 +1180,7 @@ btn_up:
     Skip_Up_Check:
     ret
 
-btn_down:
+decr_bpm:
     ; -- edge detection
     lds r17, Prev_Btn_Down
     cp temp, r17
