@@ -24,9 +24,11 @@ Sequence: .byte 32 ; 32 bytes for the 32 steps
 Step: .byte 1 ; keep traack of step number (0 to 31)
 Tick_Counter: .byte 2 ; 16bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
-Current_BPM: .byte 1 ; store current BPM
-Prev_Btn_Down: .byte 1 ; store previous joystick down state (for edge detection)
-Prev_Btn_Up: .byte 1 ; store previous joystick up state (for edge detection)
+Current_BPM: .byte 1 ; store current BPM (value between 60 and 200)
+Prev_JS_Down: .byte 1 ; store previous joystick down state (for edge detection)
+Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
+Prev_JS_Left: .byte 1 ; store previous joystick left state (for edge detection)
+Prev_JS_Right: .byte 1 ; store previous joystick right state (for edge detection)
 .cseg
 
 ; -- LEDs
@@ -780,9 +782,11 @@ setup:
     ldi r17, 120 ; default BPM
     rcall Update_BPM ; set default BPM from r17
 
-    ldi temp, 0 ; default joystick state
-    sts Prev_Btn_Down, temp
-    sts Prev_Btn_Up, temp
+    clr temp ; default joystick state
+    sts Prev_JS_Down, temp
+    sts Prev_JS_Up, temp
+    sts Prev_JS_Right, temp
+    sts Prev_JS_Left, temp
 
     rjmp loop
 ; ===#===
@@ -820,7 +824,7 @@ Fill_Sequence:
 ; === infinite loop (right after setup) ===
 loop:
 
-    rjmp User_Inputs ; handle user inputs (joystick, keypad)
+    rjmp User_Inputs ; handle user inputs (joystick, keypad) ; ? rjmp or rcall ?
 
     rjmp loop
 ; ===#===
@@ -858,7 +862,7 @@ ISR_Metronome:
     brne End_ISR_Metronome ; if delay not reached: exit
 
     ; delay reached: reset Tick Counter to 0
-    ldi temp, 0
+    clr temp ; aka ldi temp,0
     sts Tick_Counter, temp
     sts Tick_Counter+1, temp
 
@@ -903,24 +907,45 @@ Handle_Joystick:
     ret
 
 joystick_left:
+    clr temp ; default joystick state
+    sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
+    sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
+    sts Prev_JS_Right, temp ; reset prev joystick x state to center
     ; move to previous step
     ret
 joystick_right:
+    clr temp ; default joystick state
+    sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
+    sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
+    sts Prev_JS_Left, temp ; reset prev joystick y state to center
     ; move to next step
     ret
 joystick_down:
+    clr temp ; default joystick state
+    sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
+    sts Prev_JS_Right, temp ; reset prev joystick x state to center
+    sts Prev_JS_Left, temp ; reset prev joystick y state to center
     ; decrease BPM
-    rcall decr_bpm
+    rcall Decr_BPM
     rcall LED3_ON ; FIXME: DEBUG
     ret
 joystick_up:
+    clr temp ; default joystick state
+    sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
+    sts Prev_JS_Right, temp ; reset prev joystick x state to center
+    sts Prev_JS_Left, temp ; reset prev joystick y state to center
     ; increase BPM
-    rcall incr_bpm
+    rcall Incr_BPM
     rcall LED2_ON ; FIXME: DEBUG
     ret
 
 ; FIXME: for DEBUG:
 joystick_center:
+    clr temp ; default joystick state
+    sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
+    sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
+    sts Prev_JS_Right, temp ; reset prev joystick x state to center
+    sts Prev_JS_Left, temp ; reset prev joystick y state to center
     rcall LED2_OFF
     rcall LED3_OFF
     ret
@@ -1162,39 +1187,40 @@ col4row4: ; "C"
 ; ===#===
 
 
-incr_bpm:
+Incr_BPM:
     ; -- edge detection
-    lds r17, Prev_Btn_Up
-    cp temp, r17
+    lds r22, Prev_JS_Up
+    cp temp, r22
     breq Skip_Up_Check ; if state hasn't changed, do nothing
-    sts Prev_Btn_Up, temp ; Save new state
-    cpi r16, 1
+    sts Prev_JS_Up, temp ; Save new state
+    ; DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+    cpi temp, 1
     brne Skip_Up_Check ; if it changed to 0, do nothing
     ; -- increase BPM
     lds r17, Current_BPM
     cpi r17, 200 ; ComPare Immediate (with max BPM=200)
-    brge btn_up_end ; Branch if Greater or Equal (if BPM >= 200, skip incrementing)
+    brsh Incr_BPM_end ; BRanch if Same or Higher (if BPM >= 200, skip incrementing)
     inc r17
     rcall Update_BPM ; will save it to SRAM
-    btn_up_end:
+    Incr_BPM_end:
     Skip_Up_Check:
     ret
 
-decr_bpm:
+Decr_BPM:
     ; -- edge detection
-    lds r17, Prev_Btn_Down
-    cp temp, r17
+    lds r22, Prev_JS_Down
+    cp temp, r22
     breq Skip_Down_Check ; if state hasn't changed, do nothing
-    sts Prev_Btn_Down, temp ; Save new state
-    cpi r16, 1
+    sts Prev_JS_Down, temp ; Save new state
+    cpi temp, 1
     brne Skip_Down_Check ; if it changed to 0, do nothing
     ; -- decrease BPM
     lds r17, Current_BPM
-    cpi r17, 60 ; ComPare Immediate (with min BPM=60)
-    brle btn_down_end ; Branch if Less or Equal (if BPM <= 60, skip decrementing)
+    cpi r17, 61 ; ComPare Immediate (with min BPM=60)
+    brlo Decr_BPM_end ; BRanch if Lower (if BPM < 61, skip decrementing)
     dec r17
     rcall Update_BPM ; will save it to SRAM
-    btn_down_end:
+    Decr_BPM_end:
     Skip_Down_Check:
     ret
 
