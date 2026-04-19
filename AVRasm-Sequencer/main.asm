@@ -850,7 +850,7 @@ User_Inputs:
 ; ===#===
 
 ; === Metronome's ISR ===
-ISR_Metronome:
+ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     push r16 ; aka temp
     push r17
     push ZL
@@ -878,6 +878,12 @@ ISR_Metronome:
     sts Tick_Counter, temp
     sts Tick_Counter+1, temp
 
+    ; -- skip playing the note if paused
+    ; yeah keep running the Metronome even during pause to keep the timing, just skip the note-playing part
+    lds temp, Is_Playing
+    sbrs temp, 0 ; Skip if Bit in Register Set (first bit is 0 if paused, 1 if playing)
+    rjmp End_Sequence_Play_Note ; still want to advance step even if paused
+
     ; -- play note for current step
     lds r17, Step ; get current step index
     ldi ZL, low(Sequence)
@@ -885,12 +891,13 @@ ISR_Metronome:
     clr temp ; clear temp for high byte addition
     add ZL, r17 ; add step index to z pointer to point to current step's note in sequence
     adc ZH, temp ; add carry to high byte (ZH) from low byte addition
-    lpm r17, Z ; load current step's note index into r17
+    ld r17, Z ; load current step's note index into r17
     rcall Play_Note ; play the note for the current step (r17 is input idx)
+
+    End_Sequence_Play_Note: ; still want to advance step even if paused
 
     ; -- advance sequencer step
     rcall Next_Step
-    ; TODO: ...
 
     End_ISR_Metronome:
     ; -- restore stack
