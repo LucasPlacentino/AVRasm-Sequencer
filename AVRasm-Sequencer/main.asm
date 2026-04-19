@@ -1300,6 +1300,69 @@ col4row4: ; "C"
     ret
 ; ===#===
 
+; === display driver (draws the screen buffer on the LED display) ===
+.macro shiftReg
+    sbi SCREEN_P, SCREEN_DATA ; Set the data line HIGH
+    sbrs @0, @1 ; Test bit @1 in register @0; skip next instruction if set
+    cbi SCREEN_P, SCREEN_DATA ; Otherwise, set the data line LOW
+    sbi SCREEN_SENSE, SCREEN_CLK ; Generate a rising edge: set the clock line HIGH
+    sbi SCREEN_SENSE, SCREEN_CLK ; (Keep the clock line high to ensure proper timing)
+.endmacro
+Refresh_Screen:
+    ; z pointer starts at the beginning of the Screen Buffer
+    ldi ZL, low(Screen_Buffer)
+    ldi ZH, high(Screen_Buffer)
+
+    ; Initialize row selection (Bit 6 is Row 1, shifting down to Bit 0)
+    ldi r21, 0b01000000 
+    ldi r22, 7          ; We have 7 rows to draw
+
+Row_Loop:
+    ; --- 1. Shift out 80 Column Bits (10 Bytes) for this row ---
+    ldi r18, 10         ; 10 bytes per row
+Byte_Loop:
+    ld r1, Z+           ; Load 1 byte from SRAM, auto-increment Z
+    
+    ; Shift out the 8 bits of this byte
+    shiftReg r1, 7
+    shiftReg r1, 6
+    shiftReg r1, 5
+    shiftReg r1, 4
+    shiftReg r1, 3
+    shiftReg r1, 2
+    shiftReg r1, 1
+    shiftReg r1, 0
+
+    dec r18
+    brne Byte_Loop      ; Repeat until all 10 bytes are shifted
+
+    ; --- 2. Clock pulses padding (if required by your specific wiring) ---
+    cbi SCREEN_P, SCREEN_DATA 
+    sbi SCREEN_SENSE, SCREEN_CLK 
+    sbi SCREEN_SENSE, SCREEN_CLK 
+
+    ; --- 3. Shift out the 8 Row Selection Bits ---
+    shiftReg r21, 7     ; OUT7 is not connected, value does not matter [cite: 474, 475]
+    shiftReg r21, 6     
+    shiftReg r21, 5     
+    shiftReg r21, 4     
+    shiftReg r21, 3     
+    shiftReg r21, 2     
+    shiftReg r21, 1     
+    shiftReg r21, 0     
+
+    ; --- 4. Latch the Data ---
+    sbi SCREEN_SENSE, 4 ; Set PB4 HIGH (latch active)
+    sbi SCREEN_P, 4     ; Set PB4 LOW to enable output
+
+    ; --- 5. Advance to next row ---
+    lsr r21             ; Shift row selector bit to the right
+    dec r22             
+    brne Row_Loop       ; Repeat for all 7 rows
+
+    ret
+; ===#===
+
 ; ; === handle play pause btn ===
 ; Play_Pause_btn:
 ;     ; toggle play/pause state
