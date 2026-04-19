@@ -25,11 +25,23 @@ Step: .byte 1 ; keep traack of step number (0 to 31)
 Tick_Counter: .byte 2 ; 16bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
 Current_BPM: .byte 1 ; store current BPM (value between 60 and 200)
+Prev_JS_Click: .byte 1 ; store previous joystick click state (for edge detection)
 Prev_JS_Down: .byte 1 ; store previous joystick down state (for edge detection)
 Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
 Prev_JS_Left: .byte 1 ; store previous joystick left state (for edge detection)
 Prev_JS_Right: .byte 1 ; store previous joystick right state (for edge detection)
 .cseg
+
+; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
+
+.org 0x0000
+    rjmp setup
+
+; timer2 OVF
+.org OC2Aaddr ; timer 2 overflow interrrupt vector ?
+    rjmp ISR_Metronome
+
+; use timer 1 for the buzzer sound notes
 
 ; -- LEDs
 .equ LED2_D = DDRc
@@ -566,8 +578,8 @@ Play_Note:
     rol r19 ; ROtate Left thrpugh carry r19, here just pulls the shifted MSB from r18 in the Carry Flag (to handle numbers > 127)
 
     ; -- set up z pointer: r31(ZH)-r30(ZL) (flash mem is word-based, but `lpm` uses bytes for addresses, need to mult by 2 the note index of the lut)
-    ldi ZL, low(Note_LUT * 2)
-    ldi ZH, high(Note_LUT * 2)
+    ldi ZL, low(Note_Table * 2)
+    ldi ZH, high(Note_Table * 2)
     ; -- add offset to z pointer
     add ZL, r18
     adc ZH, r19 ; ADd with Carry for the high byte (ZH = ZH + r19 + Carry_Flag from add above)
@@ -668,20 +680,6 @@ Update_BPM:
     ret
 ; ===#===
 
-
-
-; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
-
-.org 0x0000
-    rjmp setup
-
-; timer2 OVF
-.org OC2Aaddr ; timer 2 overflow interrrupt vector ?
-    rjmp ISR_Metronome
-
-
-; use timer 1 for the buzzer sound notes
-
 ; === Setup sequence, runs once on startup ===
 setup:
     sei ; enable interrupts (Set global Interrupt fags)
@@ -777,15 +775,24 @@ setup:
     sbi LED3_D,LED3_I ;set led3 out pin dir to output(1)
     cbi LED3_P,LED3_I ;clear led3 to off
 
+    ; -- init sequence in SRAM
     rcall Init_Sequence ; clear sequence
 
+    ; -- init step
     clr temp ; default step 0
     sts Step, temp ; store default step in SRAM
 
+    ; -- init bpm
     ldi r17, 120 ; default BPM
     rcall Update_BPM ; set default BPM from r17
 
+    ; -- init JS click input
+    cbi JS_CLICK_D, JS_CLICK_I ; dir pin to 0 meaning input
+    sbi JS_CLICK_P, JS_CLICK_I ; enable pullup for this input pin
+
+    ; -- init JS states
     clr temp ; default joystick state
+    sts Prev_JS_Click, temp
     sts Prev_JS_Down, temp
     sts Prev_JS_Up, temp
     sts Prev_JS_Right, temp
@@ -805,8 +812,9 @@ Init_Sequence:
     ldi ZL, low(Sequence)
     ldi ZH, high(Sequence)
     ; load rest/mute value
-    ldi temp, 0xFF ; 0xFF means mute
-    ldi temp, NOTE_A3 ; A (3rd octave) FIXME: for testing
+    ;ldi temp, 0xFF ; 0xFF means mute
+	; FIXME: DEBUG
+    ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
     ; set below loop duration to the 32 steps
     ldi r17, 32
 Fill_Sequence:
@@ -916,7 +924,10 @@ Prev_Step:
 
 ; === handle joystick inputs ===
 Handle_Joystick:
-    ; TODO: check direction (up is LOW ? or vice versa, etc)
+    ; -- check JS click button
+    sbis JS_CLICK_P, JS_CLICK_I ; Skip if Bit in I/o reg is Set (skip if click not pressed), bc btn pulled up
+    rcall Play_Pause_btn ; if click pressed, toggle play/pause
+
     ; -- x-asix
     ldi r18, 0 ; joystick x-axis
     rcall Read_ADC ; read ADC value of joystick, store result in r19
@@ -932,47 +943,53 @@ Handle_Joystick:
     cpi r19, 64 ; compare with low threshold
     brlo joystick_up
 
-    ; -- joystick in center
-    ; DEBUG:
+    ; -- joystick in center (or in deadzone)
     rcall joystick_center
 
     ret
 
 joystick_left:
+	; -- reset states
     clr temp ; default joystick state
     sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
     sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
     sts Prev_JS_Right, temp ; reset prev joystick x state to center
-    ; move to previous step
+    ; -- move to previous step
+    rcall Prev_Step_btn
     ret
 joystick_right:
+    ; -- reset states
     clr temp ; default joystick state
     sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
     sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
-    ; move to next step
+    ; -- move to next step
+    rcall Next_Step_btn
     ret
 joystick_down:
+    ; -- reset states
     clr temp ; default joystick state
     sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
     sts Prev_JS_Right, temp ; reset prev joystick x state to center
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
-    ; decrease BPM
-    rcall Decr_BPM
+    ; -- decrease BPM
+    rcall Decr_BPM_btn
     rcall LED3_ON ; FIXME: DEBUG
     ret
 joystick_up:
+    ; -- reset states
     clr temp ; default joystick state
     sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
     sts Prev_JS_Right, temp ; reset prev joystick x state to center
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
-    ; increase BPM
-    rcall Incr_BPM
+    ; -- increase BPM
+    rcall Incr_BPM_btn
     rcall LED2_ON ; FIXME: DEBUG
     ret
 
 ; FIXME: for DEBUG:
 joystick_center:
+    ; -- reset states
     clr temp ; default joystick state
     sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
     sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
@@ -1017,17 +1034,17 @@ Read_ADC:
 
 LED2_ON:
     ; LOW enable
-    cbi LED_OUT2_BANK,LED_OUT2_IDX ;set bit of led to high
+    cbi LED2_P,LED2_I ;set bit of led to high
     ret
 LED2_OFF:
-    sbi LED_OUT2_BANK,LED_OUT2_IDX ;set bit of led to low
+    sbi LED2_P,LED2_I ;set bit of led to low
     ret
 LED3_ON:
     ; LOW enable
-    cbi LED_OUT3_BANK,LED_OUT3_IDX ;set bit of led to high
+    cbi LED3_P,LED3_I ;set bit of led to high
     ret
 LED3_OFF:
-    sbi LED_OUT3_BANK,LED_OUT3_IDX ;set bit of led to low
+    sbi LED3_P,LED3_I ;set bit of led to low
     ret
 ;BUZON:
 ;    ldi R16, 0b1
@@ -1218,6 +1235,23 @@ col4row4: ; "C"
     ret
 ; ===#===
 
+; === handle play pause btn ===
+Play_Pause_btn:
+    ; toggle play/pause state
+    ; -- edge detection
+    lds r22, Prev_JS_Click
+    cpi r22, 1 ; was prev state click 1 ?
+    breq Skip_Click_Check ; if state hasn't changed (still click), do nothing
+    ldi r22, 1 ; new state is click 1
+    sts Prev_JS_Click, r22 ; save new state
+    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+    ; -- toggle play/pause state
+    ; TODO: implement
+    rcall Toggle_Play_Pause
+    Skip_Click_Check:
+    ret
+; ===#===
+
 ; === handle manual sequencer steps ===
 Next_Step_btn:
     ; advance to next step in sequence
@@ -1248,7 +1282,7 @@ Next_Step_btn:
     Skip_Right_Check:
     ret
 
-Previous_Step_Btn:
+Prev_Step_Btn:
     ; move back to previous step in sequence
     ; -- edge detection
     lds r22, Prev_JS_Left
@@ -1279,7 +1313,7 @@ Previous_Step_Btn:
 ; ===#===
 
 ; === handle BPM changes from joystick ===
-Incr_BPM:
+Incr_BPM_btn:
     ; -- edge detection
     lds r22, Prev_JS_Up
     cpi r22, 1 ; was prev state up 1 ?
@@ -1297,7 +1331,7 @@ Incr_BPM:
     Skip_Up_Check:
     ret
 
-Decr_BPM:
+Decr_BPM_btn:
     ; -- edge detection
     lds r22, Prev_JS_Down
     cpi r22, 1 ; was prev state down 1 ?
