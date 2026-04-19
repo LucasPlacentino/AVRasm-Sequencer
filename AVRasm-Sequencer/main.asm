@@ -683,6 +683,9 @@ Update_BPM:
 
 ; === Setup sequence, runs once on startup ===
 setup:
+    clr temp;
+    sts Is_Playing, temp ; paused by default (on startup)
+
     sei ; enable interrupts (Set global Interrupt fags)
 
     ; ~~ old code: ~~
@@ -732,6 +735,12 @@ setup:
     ; OCIE2A = 1 -> Enable Timer 2 Compare Match A Interrupt
     ldi temp, (1<<OCIE2A)
     sts TIMSK2, temp
+    ; !~~~~~~~~~~
+    ; FIXME:
+    ; ! temporary for testing, set TIMSK2 to 0 to disable buzzer for now
+    ldi temp, 0
+    sts TIMSK2, temp
+    ; !~~~~~~~~~~
     ; -- Configure OCR2A (ceiling value of timer 2)
     ; 16MHz / Prescaler 64 = 250,000 ticks/sec
     ; ; 1ms resolution => 1000Hz
