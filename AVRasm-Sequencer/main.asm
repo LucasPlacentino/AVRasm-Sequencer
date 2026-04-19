@@ -31,6 +31,7 @@ Prev_JS_Down: .byte 1 ; store previous joystick down state (for edge detection)
 Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
 Prev_JS_Left: .byte 1 ; store previous joystick left state (for edge detection)
 Prev_JS_Right: .byte 1 ; store previous joystick right state (for edge detection)
+Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay)
 .cseg
 
 ; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
