@@ -867,7 +867,7 @@ ISR_Metronome:
     sts Tick_Counter+1, temp
 
     ; advance sequencer step
-    lds temp, Current_Step
+    lds temp, Step
     inc temp ; next step
     ; ...
 
@@ -1186,16 +1186,75 @@ col4row4: ; "C"
     ret
 ; ===#===
 
+; === handle manual sequencer steps ===
+Next_Step_btn:
+    ; advance to next step in sequence
+    ; -- edge detection
+    lds r22, Prev_JS_Right
+    cpi r22, 1 ; was prev state right 1 ?
+    breq Skip_Right_Check ; if state hasn't changed (still right), do nothing
+    ldi r22, 1 ; new state is right 1
+    sts Prev_JS_Right, r22 ; save new state
+    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+    ; -- increase current step
+    ; TODO: implement
+    ; ; if we're on last step, loop back to first
+    ; lds r23, Step
+    ; cpi r23, 31 ; compare with max step idx (31 for 32 steps)
+    ; brsh Reset_Step ; if step idx >= 31, reset to 0
+    ; inc r23 ; next step
+    ; sts Step, r23 ; save new step idx
+    ; rjmp End_Next_Step
+    ; ; -- loop back to first step
+    ; Reset_Step:
+    ; clr r23 ; reset to step 0
+    ; sts Step, r23
+    ; End_Next_Step:
 
+    rcall Next_Step
+
+    Skip_Right_Check:
+    ret
+
+Previous_Step_Btn:
+    ; move back to previous step in sequence
+    ; -- edge detection
+    lds r22, Prev_JS_Left
+    cpi r22, 1 ; was prev state left 1 ?
+    breq Skip_Left_Check ; if state hasn't changed (still left), do nothing
+    ldi r22, 1 ; new state is left 1
+    sts Prev_JS_Left, r22 ; save new state
+    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+    ; -- decrease current step
+    ; TODO: implement
+    ; ; if we're on first step, loop back to last
+    ; lds r23, Step
+    ; cpi r23, 1 ; compare with min step idx (0, but 1 because < not <=)
+    ; brlo Set_Last_Step ; if step idx < 1, set to last step idx
+    ; dec r23 ; previous step
+    ; sts Step, r23 ; save new step idx
+    ; rjmp End_Previous_Step
+    ; ; -- loop back to last step
+    ; Set_Last_Step:
+    ; ldi r23, 31 ; set to last step (31 for 32 steps bc 0-indexed)
+    ; sts Step, r23
+    ; End_Previous_Step:
+
+    rcall Prev_Step
+
+    Skip_Left_Check:
+    ret
+; ===#===
+
+; === handle BPM changes from joystick ===
 Incr_BPM:
     ; -- edge detection
     lds r22, Prev_JS_Up
-    cp temp, r22
-    breq Skip_Up_Check ; if state hasn't changed, do nothing
-    sts Prev_JS_Up, temp ; Save new state
-    ; DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-    cpi temp, 1
-    brne Skip_Up_Check ; if it changed to 0, do nothing
+    cpi r22, 1 ; was prev state up 1 ?
+    breq Skip_Up_Check ; if state hasn't changed (still up), do nothing
+    ldi r22, 1 ; new state is up 1
+    sts Prev_JS_Up, r22 ; save new state
+    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
     ; -- increase BPM
     lds r17, Current_BPM
     cpi r17, 200 ; ComPare Immediate (with max BPM=200)
@@ -1209,11 +1268,11 @@ Incr_BPM:
 Decr_BPM:
     ; -- edge detection
     lds r22, Prev_JS_Down
-    cp temp, r22
-    breq Skip_Down_Check ; if state hasn't changed, do nothing
-    sts Prev_JS_Down, temp ; Save new state
-    cpi temp, 1
-    brne Skip_Down_Check ; if it changed to 0, do nothing
+    cpi r22, 1 ; was prev state down 1 ?
+    breq Skip_Down_Check ; if state hasn't changed (still down), do nothing
+    ldi r22, 1 ; new state is down 1
+    sts Prev_JS_Down, r22 ; save new state
+    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
     ; -- decrease BPM
     lds r17, Current_BPM
     cpi r17, 61 ; ComPare Immediate (with min BPM=60)
@@ -1223,4 +1282,4 @@ Decr_BPM:
     Decr_BPM_end:
     Skip_Down_Check:
     ret
-
+; ===#===
