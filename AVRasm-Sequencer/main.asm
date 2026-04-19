@@ -779,6 +779,9 @@ setup:
 
     rcall Init_Sequence ; clear sequence
 
+    clr temp ; default step 0
+    sts Step, temp ; store default step in SRAM
+
     ldi r17, 120 ; default BPM
     rcall Update_BPM ; set default BPM from r17
 
@@ -846,7 +849,7 @@ ISR_Metronome:
     in temp, SREG
     push temp
 
-    ; incr 16-bit Tick Counter
+    ; -- incr 16-bit Tick Counter
     lds r16, Tick_Counter
     lds r17, Tick_Counter+1
     subi r16, low(-1) ; add 1 to low byte
@@ -854,22 +857,21 @@ ISR_Metronome:
     sts Tick_Counter, r16
     sts Tick_Counter+1, r17
 
-    ; compare with Tempo_Delay (e.g. 1249 is 120 BPM)
+    ; -- compare with Tempo_Delay (e.g. 1249 is 120 BPM)
     lds ZL, Tempo_Delay
     lds ZH, Tempo_Delay+1
     cp r16, ZL
     cpc r17, ZH
     brne End_ISR_Metronome ; if delay not reached: exit
 
-    ; delay reached: reset Tick Counter to 0
+    ; -- delay reached: reset Tick Counter to 0
     clr temp ; aka ldi temp,0
     sts Tick_Counter, temp
     sts Tick_Counter+1, temp
 
-    ; advance sequencer step
-    lds temp, Step
-    inc temp ; next step
-    ; ...
+    ; -- advance sequencer step
+    rcall Next_Step
+    ; TODO: ...
 
     End_ISR_Metronome:
     ; -- restore stack
@@ -881,6 +883,36 @@ ISR_Metronome:
     pop r16
     reti
 ; ===#===
+
+Next_Step:
+    ; advance sequencer step
+    lds temp, Step
+    ; check if at end of sequence (32 steps), loop back to 0
+    cpi temp, 31
+    brsh loop_to_start
+    inc temp ; next step
+    sts Step, temp
+    rjmp End_Next_Step
+    loop_to_start:
+    clr temp ; aka ldi temp,0
+    sts Step, temp
+    End_Next_Step:
+    ret
+
+Prev_Step:
+    ; move to previous step
+    lds temp, Step
+    ; check if at start of sequence (step 0), loop back to end (31)
+    cpi temp, 1
+    brlo loop_to_end
+    dec temp ; previous step
+    sts Step, temp
+    rjmp End_Prev_Step
+    loop_to_end:
+    ldi temp, 31
+    sts Step, temp
+    End_Prev_Step:
+    ret
 
 ; === handle joystick inputs ===
 Handle_Joystick:
