@@ -1,3 +1,9 @@
 
 /AVRasm-Sequencer/.vs
+/AVRasm-Sequencer/.vs/*
 /AVRasm-Sequencer/Debug
+/AVRasm-Sequencer/Debug/*
+/ScreenTesting/.vs
+/ScreenTesting/.vs/*
+/ScreenTesting/Debug
+/ScreenTesting/Debug/*
