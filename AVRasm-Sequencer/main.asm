@@ -25,6 +25,7 @@ Step: .byte 1 ; keep traack of step number (0 to 31)
 Tick_Counter: .byte 2 ; 16bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
 Current_BPM: .byte 1 ; store current BPM (value between 60 and 200)
+Is_Playing: .byte 1 ; boolean to track if the sequencer is currently playing or paused
 Prev_JS_Click: .byte 1 ; store previous joystick click state (for edge detection)
 Prev_JS_Down: .byte 1 ; store previous joystick down state (for edge detection)
 Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
@@ -787,8 +788,8 @@ setup:
     rcall Update_BPM ; set default BPM from r17
 
     ; -- init JS click input
-    cbi JS_CLICK_D, JS_CLICK_I ; dir pin to 0 meaning input
-    sbi JS_CLICK_P, JS_CLICK_I ; enable pullup for this input pin
+    cbi JS_BTN_D, JS_BTN_I ; dir pin to 0 meaning input
+    sbi JS_BTN_P, JS_BTN_I ; enable pullup for this input pin
 
     ; -- init JS states
     clr temp ; default joystick state
@@ -924,9 +925,42 @@ Prev_Step:
 
 ; === handle joystick inputs ===
 Handle_Joystick:
-    ; -- check JS click button
-    sbis JS_CLICK_P, JS_CLICK_I ; Skip if Bit in I/o reg is Set (skip if click not pressed), bc btn pulled up
-    rcall Play_Pause_btn ; if click pressed, toggle play/pause
+    push temp
+    push r17
+    push r18
+
+    ; FIXME: 
+    ; ; -- check JS click button
+    ; sbis JS_BTN_SENSE, JS_BTN_I ; Skip if Bit in I/o reg is Set (skip if click not pressed), bc btn pulled up
+    ; rcall Play_Pause_btn ; if click pressed, toggle play/pause
+
+    ; -- check joystick click button
+    clr temp ; assume button is pressed (0)
+    sbic JS_BTN_SENSE, JS_BTN_I  ; Skip next instruction if Bit in I/o reg is Cleared (0 aka pressed bc pulled-up)
+    ldi temp, 1 ; If pin is HIGH, set temp to 1 (released)
+    ; -- edge detection for btn
+    lds r17, Prev_JS_Btn
+    cp temp, r17
+    breq Skip_Click_Check ; if state hasn't changed, skip toggle logic
+    sts Prev_JS_Btn, temp ; state changed, save the new physical state
+    cpi temp, 1
+    breq Skip_Click_Check ; if changed to 1 (btn released), skip toggle
+    ; -- it changed to 0 (aka clicked)
+    ; toggle play/pause state
+    lds r17, Is_Playing
+    ldi r18, 1
+    eor r17, r18 ; XOR flips 1 to 0, and 0 to 1
+    sts Is_Playing, r17
+
+    ; TODO: ??
+    ; instantly mute buzzer if just paused
+    sbrc r17, 0 ; skip mute if bit 0 is set (playing = 1)
+    rcall Mute_Buzzer ; mute if paused (0) ; TODO: something else
+    
+    ; TODO: ?
+    rjmp Handle_Joystick_End ; ignore rest of joystick handling if just clicked ?
+
+    Skip_Click_Check:
 
     ; -- x-asix
     ldi r18, 0 ; joystick x-axis
@@ -946,6 +980,11 @@ Handle_Joystick:
     ; -- joystick in center (or in deadzone)
     rcall joystick_center
 
+    Handle_Joystick_End:
+
+    pop r18
+    pop r17
+    pop temp
     ret
 
 joystick_left:
