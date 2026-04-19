@@ -878,6 +878,16 @@ ISR_Metronome:
     sts Tick_Counter, temp
     sts Tick_Counter+1, temp
 
+    ; -- play note for current step
+    lds r17, Step ; get current step index
+    ldi ZL, low(Sequence)
+    ldi ZH, high(Sequence)
+    clr temp ; clear temp for high byte addition
+    add ZL, r17 ; add step index to z pointer to point to current step's note in sequence
+    adc ZH, temp ; add carry to high byte (ZH) from low byte addition
+    lpm r17, Z ; load current step's note index into r17
+    rcall Play_Note ; play the note for the current step (r17 is input idx)
+
     ; -- advance sequencer step
     rcall Next_Step
     ; TODO: ...
@@ -929,20 +939,20 @@ Handle_Joystick:
     push r17
     push r18
 
-    ; FIXME: 
+    ; FIXME:
     ; ; -- check JS click button
     ; sbis JS_BTN_SENSE, JS_BTN_I ; Skip if Bit in I/o reg is Set (skip if click not pressed), bc btn pulled up
     ; rcall Play_Pause_btn ; if click pressed, toggle play/pause
 
     ; -- check joystick click button
     clr temp ; assume button is pressed (0)
-    sbic JS_BTN_SENSE, JS_BTN_I  ; Skip next instruction if Bit in I/o reg is Cleared (0 aka pressed bc pulled-up)
+    sbic JS_BTN_SENSE, JS_BTN_I ; Skip next instruction if Bit in I/o reg is Cleared (0 aka pressed bc pulled-up)
     ldi temp, 1 ; If pin is HIGH, set temp to 1 (released)
     ; -- edge detection for btn
-    lds r17, Prev_JS_Btn
+    lds r17, Prev_JS_Click
     cp temp, r17
     breq Skip_Click_Check ; if state hasn't changed, skip toggle logic
-    sts Prev_JS_Btn, temp ; state changed, save the new physical state
+    sts Prev_JS_Click, temp ; state changed, save the new physical state
     cpi temp, 1
     breq Skip_Click_Check ; if changed to 1 (btn released), skip toggle
     ; -- it changed to 0 (aka clicked)
@@ -956,7 +966,7 @@ Handle_Joystick:
     ; instantly mute buzzer if just paused
     sbrc r17, 0 ; skip mute if bit 0 is set (playing = 1)
     rcall Mute_Buzzer ; mute if paused (0) ; TODO: something else
-    
+
     ; TODO: ?
     rjmp Handle_Joystick_End ; ignore rest of joystick handling if just clicked ?
 
@@ -1274,22 +1284,22 @@ col4row4: ; "C"
     ret
 ; ===#===
 
-; === handle play pause btn ===
-Play_Pause_btn:
-    ; toggle play/pause state
-    ; -- edge detection
-    lds r22, Prev_JS_Click
-    cpi r22, 1 ; was prev state click 1 ?
-    breq Skip_Click_Check ; if state hasn't changed (still click), do nothing
-    ldi r22, 1 ; new state is click 1
-    sts Prev_JS_Click, r22 ; save new state
-    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-    ; -- toggle play/pause state
-    ; TODO: implement
-    rcall Toggle_Play_Pause
-    Skip_Click_Check:
-    ret
-; ===#===
+; ; === handle play pause btn ===
+; Play_Pause_btn:
+;     ; toggle play/pause state
+;     ; -- edge detection
+;     lds r22, Prev_JS_Click
+;     cpi r22, 1 ; was prev state click 1 ?
+;     breq Skip_Click_Check ; if state hasn't changed (still click), do nothing
+;     ldi r22, 1 ; new state is click 1
+;     sts Prev_JS_Click, r22 ; save new state
+;     ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+;     ; -- toggle play/pause state
+;     ; TODO: implement
+;     rcall Toggle_Play_Pause
+;     Skip_Click_Check:
+;     ret
+; ; ===#===
 
 ; === handle manual sequencer steps ===
 Next_Step_btn:
