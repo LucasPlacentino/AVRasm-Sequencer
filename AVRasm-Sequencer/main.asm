@@ -29,11 +29,20 @@ Tick_Counter: .byte 2 ; 16bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
 Current_BPM: .byte 1 ; store current BPM (value between 60 and 200)
 Is_Playing: .byte 1 ; boolean to track if the sequencer is currently playing or paused
-Prev_JS_Click: .byte 1 ; store previous joystick click state (for edge detection)
-Prev_JS_Down: .byte 1 ; store previous joystick down state (for edge detection)
-Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
-Prev_JS_Left: .byte 1 ; store previous joystick left state (for edge detection)
-Prev_JS_Right: .byte 1 ; store previous joystick right state (for edge detection)
+; -- store previous joystick state (for edge detection)
+Prev_JS_Click: .byte 1
+Prev_JS_Down: .byte 1
+Prev_JS_Up: .byte 1
+Prev_JS_Left: .byte 1
+Prev_JS_Right: .byte 1
+; -- store previous keypad buttons states (for edge detection)
+Prev_KP_0: .byte 1
+; TODO: fill
+Prev_KP_9: .byte 1
+Prev_KP_A: .byte 1
+; TODO: fill
+Prev_KP_E: .byte 1
+Prev_KP_F: .byte 1
 ; Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay) -> 1 bit per LED
 ;Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED ; set in display.asm file
 Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
