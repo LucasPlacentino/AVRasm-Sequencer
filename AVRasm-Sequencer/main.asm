@@ -7,7 +7,9 @@
 ;
 
 ; ATmega328P
-.INCLUDE "m328pdef.inc"
+.include "m328pdef.inc"
+
+.include "display.asm"
 
 ; TODO: use some of these ?
 ; .ORG
@@ -31,7 +33,8 @@ Prev_JS_Down: .byte 1 ; store previous joystick down state (for edge detection)
 Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
 Prev_JS_Left: .byte 1 ; store previous joystick left state (for edge detection)
 Prev_JS_Right: .byte 1 ; store previous joystick right state (for edge detection)
-Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay)
+; Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay) -> 1 bit per LED
+Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED
 .cseg
 
 ; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
@@ -1298,69 +1301,6 @@ col4row4: ; "C"
     ; do something
     ; clear/mute note
     ; TODO: implement
-    ret
-; ===#===
-
-; === display driver (draws the screen buffer on the LED display) ===
-.macro shiftReg
-    sbi SCREEN_P, SCREEN_DATA ; Set the data line HIGH
-    sbrs @0, @1 ; Test bit @1 in register @0; skip next instruction if set
-    cbi SCREEN_P, SCREEN_DATA ; Otherwise, set the data line LOW
-    sbi SCREEN_SENSE, SCREEN_CLK ; Generate a rising edge: set the clock line HIGH
-    sbi SCREEN_SENSE, SCREEN_CLK ; (Keep the clock line high to ensure proper timing)
-.endmacro
-Refresh_Screen:
-    ; z pointer starts at the beginning of the Screen Buffer
-    ldi ZL, low(Screen_Buffer)
-    ldi ZH, high(Screen_Buffer)
-
-    ; Initialize row selection (Bit 6 is Row 1, shifting down to Bit 0)
-    ldi r21, 0b01000000 
-    ldi r22, 7          ; We have 7 rows to draw
-
-Row_Loop:
-    ; --- 1. Shift out 80 Column Bits (10 Bytes) for this row ---
-    ldi r18, 10         ; 10 bytes per row
-Byte_Loop:
-    ld r1, Z+           ; Load 1 byte from SRAM, auto-increment Z
-    
-    ; Shift out the 8 bits of this byte
-    shiftReg r1, 7
-    shiftReg r1, 6
-    shiftReg r1, 5
-    shiftReg r1, 4
-    shiftReg r1, 3
-    shiftReg r1, 2
-    shiftReg r1, 1
-    shiftReg r1, 0
-
-    dec r18
-    brne Byte_Loop      ; Repeat until all 10 bytes are shifted
-
-    ; --- 2. Clock pulses padding (if required by your specific wiring) ---
-    cbi SCREEN_P, SCREEN_DATA 
-    sbi SCREEN_SENSE, SCREEN_CLK 
-    sbi SCREEN_SENSE, SCREEN_CLK 
-
-    ; --- 3. Shift out the 8 Row Selection Bits ---
-    shiftReg r21, 7     ; OUT7 is not connected, value does not matter [cite: 474, 475]
-    shiftReg r21, 6     
-    shiftReg r21, 5     
-    shiftReg r21, 4     
-    shiftReg r21, 3     
-    shiftReg r21, 2     
-    shiftReg r21, 1     
-    shiftReg r21, 0     
-
-    ; --- 4. Latch the Data ---
-    sbi SCREEN_SENSE, 4 ; Set PB4 HIGH (latch active)
-    sbi SCREEN_P, 4     ; Set PB4 LOW to enable output
-
-    ; --- 5. Advance to next row ---
-    lsr r21             ; Shift row selector bit to the right
-    dec r22             
-    brne Row_Loop       ; Repeat for all 7 rows
-
     ret
 ; ===#===
 
