@@ -469,6 +469,24 @@ Prev_Step_Btn:
 
 ; === handle BPM changes from joystick ===
 Incr_BPM_btn:
+	push temp
+	push r17
+	push r22
+
+	; -- edge detection
+	lds temp, Prev_JS_Up
+	tst temp ; test for 0
+	brne Skip_Incr_BPM_btn ; state didn't change, skip
+
+	ldi temp, 1
+	sts Prev_JS_Up, temp ; store new state (1)
+	; DO NOT FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+	; -- increase bpm
+	lds r17, Current_BPM
+	cpi r17, MAX_BPM
+	brsh Incr_BPM_btn_end ; BPM already at max value
+
     ; -- edge detection
     lds r22, Prev_JS_Up
     cpi r22, 1 ; was prev state up 1 ?
@@ -484,6 +502,12 @@ Incr_BPM_btn:
     rcall Update_BPM ; will save it to SRAM
     Incr_BPM_end:
     Skip_Up_Check:
+
+	Incr_BPM_btn:
+	Skip_Incr_BPM_btn:
+	pop r22
+	pop r17
+	pop temp
     ret
 
 Decr_BPM_btn:
