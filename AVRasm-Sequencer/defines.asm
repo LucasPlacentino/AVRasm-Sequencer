@@ -450,3 +450,6 @@ BPM_Table:
     .dw 753 ; 199 BPM
     .dw 749 ; 200 BPM
 ; ===#===
+
+.equ MAX_BPM = 200
+.equ MIN_BPM = 60

@@ -37,10 +37,19 @@ Prev_JS_Left: .byte 1
 Prev_JS_Right: .byte 1
 ; -- store previous keypad buttons states (for edge detection)
 Prev_KP_0: .byte 1
-; TODO: fill
+Prev_KP_1: .byte 1
+Prev_KP_2: .byte 1
+Prev_KP_3: .byte 1
+Prev_KP_4: .byte 1
+Prev_KP_5: .byte 1
+Prev_KP_6: .byte 1
+Prev_KP_7: .byte 1
+Prev_KP_8: .byte 1
 Prev_KP_9: .byte 1
 Prev_KP_A: .byte 1
-; TODO: fill
+Prev_KP_B: .byte 1
+Prev_KP_C: .byte 1
+Prev_KP_D: .byte 1
 Prev_KP_E: .byte 1
 Prev_KP_F: .byte 1
 ; Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay) -> 1 bit per LED
@@ -226,7 +235,7 @@ Mute_Buzzer:
 ; === Update BPM ===
 ; input r17 is target BPM (must be between 60 and 200 !)
 Update_BPM:
-	push temp
+    push temp
     ;push r17
     push r18
     push r19
@@ -235,11 +244,11 @@ Update_BPM:
 
     sts Current_BPM, r17 ; store current BPM in SRAM for reference
 
-	; r17 is BPM input for drawing it
-	rcall Draw_BPM
+    ; r17 is BPM input for drawing it
+    rcall Draw_BPM
 
-    ; substract 60 to get the BPM table idx (0 to 140), because we used BPMs b/w 60 and 200
-    subi r17, 60
+    ; substract MIB_BPM to get the BPM table idx (0 to 140), because we used BPMs b/w 60 and 200
+    subi r17, MIN_BPM
 
     ; mltiply idx by 2 (because .dw uses 2 bytes)
     mov r18, r17 ; MOVe lut index to r18 (keep r17 intact)
@@ -272,13 +281,13 @@ Update_BPM:
     pop r19
     pop r18
     ;pop r17
-	pop temp
+    pop temp
     ret
 ; ===#===
 
 ; === Setup sequence, runs once on startup ===
 setup:
-	; initialize stack pointer (just to be sure)
+    ; initialize stack pointer (just to be sure)
     ldi temp, high(RAMEND)
     out SPH, temp
     ldi temp, low(RAMEND)
@@ -343,14 +352,14 @@ setup:
     ldi temp, (1<<OCIE2A)
     sts TIMSK2, temp
 
-	/*
+    /*
     ; !~~~~~~~~~~
     ; FIXME:
     ; ! temporary for testing, set TIMSK2 to 0 to disable buzzer for now
     ldi temp, 0
     sts TIMSK2, temp
     ; !~~~~~~~~~~
-	*/
+    */
 
     ; -- Configure OCR2A (ceiling value of timer 2)
     ; 16MHz / Prescaler 64 = 250,000 ticks/sec
@@ -363,7 +372,7 @@ setup:
     sts OCR2A, temp
     ; ----#----
 
-	rcall Inputs_Init ;
+    rcall Inputs_Init ;
 
 
     ; -- init sequence in SRAM
@@ -377,15 +386,15 @@ setup:
     ldi r17, 120 ; default BPM
     rcall Update_BPM ; set BPM (save in SRAM and update Tempo_Delay)
 
-	; ---- outputs ----
-	; -- screen
-	ldi temp, (1<<DISPLAY_DATA) | (1<<4) | (1<<DISPLAY_CLK)
+    ; ---- outputs ----
+    ; -- screen
+    ldi temp, (1<<DISPLAY_DATA) | (1<<4) | (1<<DISPLAY_CLK)
     out DISPLAY_D, temp
     out DISPLAY_PORT, temp
 
-	rcall Init_Display
+    rcall Init_Display
 
-	; ;buzzer output
+    ; ;buzzer output
     ; sbi BZ_OUT_DIR,BZ_OUT_IDX ;set buzzer out pin dir to output(1)
     ; cbi BZ_OUT_BANK,BZ_OUT_IDX ;clear buzzer to off
 
@@ -394,9 +403,9 @@ setup:
     cbi LED2_P,LED2_I ;clear led2 to off
     sbi LED3_D,LED3_I ;set led3 out pin dir to output(1)
     cbi LED3_P,LED3_I ;clear led3 to off
-	; ----#----
+    ; ----#----
 
-	sei ; enable interrupts (Set global Interrupt fags)
+    sei ; enable interrupts (Set global Interrupt fags)
     rjmp loop
 ; ===#===
 
@@ -412,7 +421,7 @@ Init_Sequence:
     ldi ZH, high(Sequence)
     ; load rest/mute value
     ;ldi temp, 0xFF ; 0xFF means mute
-	; FIXME: DEBUG
+    ; FIXME: DEBUG
     ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
     ; set below loop duration to the 32 steps
     ldi r17, 32
@@ -443,6 +452,8 @@ loop:
 ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     push r16 ; aka temp
     push r17
+    push r18
+    push r19
     push ZL
     push ZH
     in temp, SREG
@@ -455,6 +466,16 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     sbci r17, high(-1) ; add carry (from low byte) to high byte
     sts Tick_Counter, r16
     sts Tick_Counter+1, r17
+
+    ; -- reset btn states (joystick and keypad) every 200ms
+    ; if Tick Counter == 2000 (for 0.1ms)
+    mov r18, r16 ; copy low byte of Tick Counter to r18 for comparison
+    mov r19, r17 ; copy high byte of Tick Counter to r19 for comparison
+    subi r18, low(5000) ; 2000 for 0.1ms resolution = 200ms
+    sbci r19, high(5000) ; sub with carry for high byte
+    brne Skip_Reset_Btn_States ; if not 200ms yet, skip reset
+    rcall Reset_Prev_Btn_States
+    Skip_Reset_Btn_States:
 
     ; -- compare with Tempo_Delay (e.g. 1249 is 120 BPM)
     lds ZL, Tempo_Delay
@@ -495,6 +516,8 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     out SREG, temp
     pop ZH
     pop ZL
+    pop r19
+    pop r18
     pop r17
     pop r16
     reti

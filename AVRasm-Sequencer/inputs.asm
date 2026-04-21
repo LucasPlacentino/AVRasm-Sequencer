@@ -7,7 +7,7 @@
 ;
 
 Inputs_Init:
-	; ---- inputs init ----
+    ; ---- inputs init ----
     ; ---- ADC (for joystick) ----
     ; -- configure joystick (ADC) input pins
     cbi JS_X_D, JS_X_I ; set joystick x dir pin to input (0)
@@ -29,7 +29,7 @@ Inputs_Init:
     cbi SW_D, SW_I ; dir pin to 0 meaning input
     sbi SW_P, SW_I ; enable pullup for this input pin
 
-	; -- init JS click input
+    ; -- init JS click input
     cbi JS_BTN_D, JS_BTN_I ; dir pin to 0 meaning input
     sbi JS_BTN_P, JS_BTN_I ; enable pullup for this input pin
 
@@ -41,17 +41,26 @@ Inputs_Init:
     sts Prev_JS_Right, temp
     sts Prev_JS_Left, temp
 
-	; -- init keypad states
-	sts Prev_KP_0, temp
-	; TODO: fill
-	sts Prev_KP_9, temp
-	sts Prev_KP_A, temp
-	; TODO: fill
-	sts Prev_KP_E, temp
-	sts Prev_KP_F, temp
+    ; -- init keypad states
+    sts Prev_KP_0, temp
+    sts Prev_KP_1, temp
+    sts Prev_KP_2, temp
+    sts Prev_KP_3, temp
+    sts Prev_KP_4, temp
+    sts Prev_KP_5, temp
+    sts Prev_KP_6, temp
+    sts Prev_KP_7, temp
+    sts Prev_KP_8, temp
+    sts Prev_KP_9, temp
+    sts Prev_KP_A, temp
+    sts Prev_KP_B, temp
+    sts Prev_KP_C, temp
+    sts Prev_KP_D, temp
+    sts Prev_KP_E, temp
+    sts Prev_KP_F, temp
 
-	; ----#----
-	ret
+    ; ----#----
+    ret
 
 ; === handle user inputs (joystick, keypad) ===
 User_Inputs:
@@ -59,6 +68,33 @@ User_Inputs:
     ;rjmp kp_polling_1 ; ? rjmp or rcall ?
     rcall Scan_Keypad ; ? rjmp or rcall ?
     rjmp loop
+; ===#===
+
+; === reset all btn states ===
+Reset_Prev_Btn_States:
+    clr temp
+    sts Prev_JS_Click, temp
+    sts Prev_JS_Down, temp
+    sts Prev_JS_Up, temp
+    sts Prev_JS_Right, temp
+    sts Prev_JS_Left, temp
+
+    sts Prev_KP_0, temp
+    sts Prev_KP_1, temp
+    sts Prev_KP_2, temp
+    sts Prev_KP_3, temp
+    sts Prev_KP_4, temp
+    sts Prev_KP_5, temp
+    sts Prev_KP_6, temp
+    sts Prev_KP_7, temp
+    sts Prev_KP_8, temp
+    sts Prev_KP_9, temp
+    sts Prev_KP_A, temp
+    sts Prev_KP_B, temp
+    sts Prev_KP_C, temp
+    sts Prev_KP_D, temp
+    sts Prev_KP_E, temp
+    sts Prev_KP_F, temp
 ; ===#===
 
 ; === handle joystick inputs ===
@@ -126,7 +162,7 @@ Handle_Joystick:
     ret
 
 joystick_left:
-	; -- reset states
+    ; -- reset states
     clr temp ; default joystick state
     sts Prev_JS_Up, temp ; reset prev btn up state to 0 (no btn up)
     sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
@@ -374,11 +410,11 @@ col3row4: ; "B"
 ; --- COL 4 ---
 col4row1: ; "F"
     ; do something
-	rcall Incr_BPM_btn ; FIXME: debug
+    rcall Incr_BPM_btn ; FIXME: debug
     ret
 col4row2: ; "E"
     ; do something
-	rcall Decr_BPM_btn ; FIXME: debug
+    rcall Decr_BPM_btn ; FIXME: debug
     ret
 col4row3: ; "D"
     ; do something
@@ -409,6 +445,7 @@ col4row4: ; "C"
 
 ; === handle manual sequencer steps ===
 Next_Step_btn:
+    push r22
     ; advance to next step in sequence
     ; -- edge detection
     lds r22, Prev_JS_Right
@@ -433,11 +470,14 @@ Next_Step_btn:
     ; End_Next_Step:
 
     rcall Next_Step
+    rcall LED2_ON ; FIXME: DEBUG
 
     Skip_Right_Check:
+    pop r22
     ret
 
 Prev_Step_Btn:
+    push r22
     ; move back to previous step in sequence
     ; -- edge detection
     lds r22, Prev_JS_Left
@@ -462,69 +502,65 @@ Prev_Step_Btn:
     ; End_Previous_Step:
 
     rcall Prev_Step
+    rcall LED3_ON ; FIXME: DEBUG
 
     Skip_Left_Check:
+    pop r22
     ret
 ; ===#===
 
 ; === handle BPM changes from joystick ===
 Incr_BPM_btn:
-	push temp
-	push r17
-	push r22
-
-	; -- edge detection
-	lds temp, Prev_JS_Up
-	tst temp ; test for 0
-	brne Skip_Incr_BPM_btn ; state didn't change, skip
-
-	ldi temp, 1
-	sts Prev_JS_Up, temp ; store new state (1)
-	; DO NOT FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
-
-	; -- increase bpm
-	lds r17, Current_BPM
-	cpi r17, MAX_BPM
-	brsh Incr_BPM_btn_end ; BPM already at max value
+    push temp
+    push r17
 
     ; -- edge detection
-    lds r22, Prev_JS_Up
-    cpi r22, 1 ; was prev state up 1 ?
-    breq Skip_Up_Check ; if state hasn't changed (still up), do nothing
-    ldi r22, 1 ; new state is up 1
-    sts Prev_JS_Up, r22 ; save new state
-    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-    ; -- increase BPM
-    lds r17, Current_BPM
-    cpi r17, 200 ; ComPare Immediate (with max BPM=200)
-    brsh Incr_BPM_end ; BRanch if Same or Higher (if BPM >= 200, skip incrementing)
-    inc r17
-    rcall Update_BPM ; will save it to SRAM
-    Incr_BPM_end:
-    Skip_Up_Check:
+    lds temp, Prev_JS_Up
+    tst temp ; test for 0
+    brne Skip_Incr_BPM_btn ; state didn't change, skip
 
-	Incr_BPM_btn:
-	Skip_Incr_BPM_btn:
-	pop r22
-	pop r17
-	pop temp
+    ldi temp, 1
+    sts Prev_JS_Up, temp ; store new state (1)
+    ; DO NOT FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- increase bpm
+    lds r17, Current_BPM
+    cpi r17, MAX_BPM
+    brsh Incr_BPM_btn_end ; BPM already at max value
+    inc r17
+    rcall Update_BPM ; will also save to SRAM
+    rcall LED2_ON ; FIXME: DEBUG
+
+    Incr_BPM_btn_end:
+    Skip_Incr_BPM_btn:
+    pop r17
+    pop temp
     ret
 
 Decr_BPM_btn:
+    push temp
+    push r17
+
     ; -- edge detection
-    lds r22, Prev_JS_Down
-    cpi r22, 1 ; was prev state down 1 ?
-    breq Skip_Down_Check ; if state hasn't changed (still down), do nothing
-    ldi r22, 1 ; new state is down 1
-    sts Prev_JS_Down, r22 ; save new state
-    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-    ; -- decrease BPM
+    lds temp, Prev_JS_Down
+    tst temp ; test for 0
+    brne Skip_Decr_BPM_btn ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_JS_Down, temp ; store new state (1)
+    ; DO NOT FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- decrease bpm
     lds r17, Current_BPM
-    cpi r17, 61 ; ComPare Immediate (with min BPM=60)
-    brlo Decr_BPM_end ; BRanch if Lower (if BPM < 61, skip decrementing)
+    cpi r17, MIN_BPM+1
+    brlo Decr_BPM_btn_end ; BPM already at min value
     dec r17
-    rcall Update_BPM ; will save it to SRAM
-    Decr_BPM_end:
-    Skip_Down_Check:
+    rcall Update_BPM ; will also save to SRAM
+    rcall LED3_ON ; FIXME: DEBUG
+
+    Decr_BPM_btn_end:
+    Skip_Decr_BPM_btn:
+    pop r17
+    pop temp
     ret
 ; ===#===

@@ -46,7 +46,7 @@ init:
     OUT DISPLAY_D, temp
     OUT DISPLAY_PORT, temp
 
-	; --- Timer 0 Setup (Display Multiplexing) ---
+    ; --- Timer 0 Setup (Display Multiplexing) ---
     ; 1. Prescaler = 64
     LDI temp, (1<<CS01)|(1<<CS00)
     OUT TCCR0B, temp
@@ -87,31 +87,31 @@ init:
     LDI px_state, 1
     rcall Set_Pixel
 
-	; test
-	ldi px_x, 5
-	ldi px_y, 11
-	ldi px_state, 1
-	rcall Set_Pixel
+    ; test
+    ldi px_x, 5
+    ldi px_y, 11
+    ldi px_state, 1
+    rcall Set_Pixel
 
-	; test
-	ldi px_x,0
-	ldi px_y,0
-	ldi px_state,1
-	rcall Set_Pixel
+    ; test
+    ldi px_x,0
+    ldi px_y,0
+    ldi px_state,1
+    rcall Set_Pixel
 
-	LDI px_y, 13          ; Constant Y coordinate
+    LDI px_y, 13          ; Constant Y coordinate
     LDI px_state, 1       ; State = ON
     LDI px_x, 0           ; Start X at 0
-	Draw_Bottom_Line:
+    Draw_Bottom_Line:
     rcall Set_Pixel       ; Draw the current pixel
     INC px_x              ; Move 1 pixel to the right
     CPI px_x, 32          ; Compare X with 32 (the limit)
     BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
 
-	LDI r17, 128     ; Load a test BPM
+    LDI r17, 128     ; Load a test BPM
     rcall Draw_BPM   ; Watch the math happen
 
-	sei
+    sei
     RJMP main
 
 main:
@@ -351,26 +351,52 @@ clear_loop:
 ; Input: r17 (The current BPM, 60 to 200)
 ;---------------------------------------------------------
 Draw_BPM:
+    push temp
+    PUSH r22    ; Digit to draw
     PUSH r23    ; Hundreds
     PUSH r24    ; Tens
     PUSH r25    ; Units
-    PUSH r22    ; Digit to draw
     PUSH px_x
     PUSH px_y
 
-    ; --- 1. Clear the 3x14 drawing area (avoid ghosting) ---
-    LDI px_x, 37
-clear_box_x:
-    LDI px_y, 0
-clear_box_y:
-    LDI px_state, 0
-    rcall Set_Pixel
-    INC px_y
-    CPI px_y, 14
-    BRNE clear_box_y
-    INC px_x
-    CPI px_x, 40
-    BRNE clear_box_x
+;     ; --- 1. Clear the 3x14 drawing area (avoid ghosting) ---
+;     LDI px_x, 37
+; clear_box_x:
+;     LDI px_y, 0
+; clear_box_y:
+;     LDI px_state, 0
+;     rcall Set_Pixel
+;     INC px_y
+;     CPI px_y, 14
+;     BRNE clear_box_y
+;     INC px_x
+;     CPI px_x, 40
+;     BRNE clear_box_x
+
+    ; --- 1. INSTANT CLEAR (Wipes the entire 3x14 BPM box) ---
+    LDI r18, 7                  ; 7 hardware rows
+    LDI ZL, low(Screen_Buffer)
+    LDI ZH, high(Screen_Buffer)
+    CLR temp                    ; 0 = OFF
+
+    clear_bpm_fast:
+    ; Wipe visual cols 37,38,39 on the Bottom Panel (Hardware cols 0,1,2)
+    std Z+0, temp
+    std Z+1, temp
+    std Z+2, temp
+
+    ; Wipe visual cols 37,38,39 on the Top Panel (Hardware cols 40,41,42)
+    std Z+40, temp
+    std Z+41, temp
+    std Z+42, temp
+
+    ; Jump to the next hardware row (+80 bytes)
+    LDI r19, 80
+    ADD ZL, r19
+    CLR r19
+    ADC ZH, r19
+    DEC r18
+    BRNE clear_bpm_fast
 
     ; --- 2. Binary to BCD (Split into digits) ---
     CLR r23
@@ -391,13 +417,14 @@ count_10:
 
 draw_digits:
     ; --- 3. Draw Hundreds Digit (Y = 0) ---
+    ldi temp, 10 ; idx 10 is blank char
     TST r23
-    BREQ skip_hundreds      ; Do not draw a leading zero for BPM < 100
-    MOV r22, r23
+    BREQ draw_hundreds      ; leading zero (for BPM < 100), draw blank instead of '0'
+    MOV r22, r23 ; leading digit is not zero, draw normally
+draw_hundreds:
     LDI px_x, 37
     LDI px_y, 0
     rcall Draw_Number_3x4
-skip_hundreds:
 
     ; --- 4. Draw Tens Digit (Y = 5) ---
     MOV r22, r24
@@ -413,10 +440,11 @@ skip_hundreds:
 
     POP px_y
     POP px_x
-    POP r22
     POP r25
     POP r24
     POP r23
+    POP r22
+    pop temp
     RET
 
 ;---------------------------------------------------------
@@ -480,7 +508,7 @@ draw_row:
     RET
 
 Font3x4: ; for hundredth digit of BPM
-	.db 0b111, 0b101, 0b101, 0b111  ; 0
+    .db 0b111, 0b101, 0b101, 0b111  ; 0
     .db 0b110, 0b010, 0b010, 0b111  ; 1
     .db 0b111, 0b001, 0b110, 0b111  ; 2
     .db 0b111, 0b010, 0b001, 0b111  ; 3
@@ -490,6 +518,7 @@ Font3x4: ; for hundredth digit of BPM
     .db 0b111, 0b001, 0b010, 0b010  ; 7
     .db 0b111, 0b101, 0b111, 0b111  ; 8
     .db 0b111, 0b101, 0b111, 0b001  ; 9
+    .db 0b000, 0b000, 0b000, 0b000  ; blank (for leading zero)
 ; 3x4 Font:
 ; ##
 ;  #
@@ -565,55 +594,30 @@ Init_Display:
     ; 3. Clear the SRAM Buffer to black (0)
     rcall Clear_Screen
 
-    ; 4. Draw a 2x2 square in the middle using Set_Pixel
-    ; Top-Left (40, 3)
-    LDI px_x, 38      ; X
-    LDI px_y, 3       ; Y
-    LDI px_state, 1       ; State (1 = ON)
+    ; test
+    ldi px_x, 5
+    ldi px_y, 8
+    ldi px_state, 1
     rcall Set_Pixel
-
-    ; Top-Right (41, 3)
-    LDI px_x, 39
-    LDI px_y, 3
-    LDI px_state, 1
+/*
+    ; test
+    ldi px_x,0
+    ldi px_y,0
+    ldi px_state,1
     rcall Set_Pixel
-
-    ; Bottom-Left (40, 4)
-    LDI px_x, 38
-    LDI px_y, 4
-    LDI px_state, 1
-    rcall Set_Pixel
-
-    ; Bottom-Right (41, 4)
-    LDI px_x, 39
-    LDI px_y, 4
-    LDI px_state, 1
-    rcall Set_Pixel
-
-	; test
-	ldi px_x, 5
-	ldi px_y, 11
-	ldi px_state, 1
-	rcall Set_Pixel
-
-	; test
-	ldi px_x,0
-	ldi px_y,0
-	ldi px_state,1
-	rcall Set_Pixel
-
-	LDI px_y, 13          ; Constant Y coordinate
+*/
+    LDI px_y, 13          ; Constant Y coordinate
     LDI px_state, 1       ; State = ON
     LDI px_x, 0           ; Start X at 0
-	Draw_Bottom_Line:
+    Draw_Bottom_Line:
     rcall Set_Pixel       ; Draw the current pixel
     INC px_x              ; Move 1 pixel to the right
     CPI px_x, 32          ; Compare X with 32 (the limit)
     BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
 
-	; TODO: draw everything once
+    ; TODO: draw everything once
     rcall Draw_BPM
-	ret
+    ret
 
 ;---------------------------------------------------------
 ; ISR: Timer 0 Overflow (Screen Multiplexing)
@@ -624,7 +628,7 @@ ISR_Display:
     push temp
     push r0
     push r1
-	push r17
+    push r17
     push r18
     push r19
     push r23
@@ -693,7 +697,7 @@ save_row:
     POP r23
     POP r19
     POP r18
-	pop r17
+    pop r17
     POP r1
     POP r0
     POP temp
@@ -787,25 +791,25 @@ calc_address:
 
 ; === drawing current step ===
 Draw_Step:
-	push temp
-	push px_x
-	push px_y
+    push temp
+    push px_x
+    push px_y
 
-	lds temp, Step
-	ldi px_y, 13
-	mov px_x, temp
-	ldi px_state, 1
+    lds temp, Step
+    ldi px_y, 13
+    mov px_x, temp
+    ldi px_state, 1
     rcall Set_Pixel
 
-	pop px_y
-	pop px_x
-	pop temp
-	ret
+    pop px_y
+    pop px_x
+    pop temp
+    ret
 ; ===#===
 
 ;---------------------------------------------------------
 ; Subroutine: Draw_BPM
-; Input: r17 (The current BPM, 60 to 200)
+; Input: r17 (The current BPM, MIN_BPM=60 to MAX_BPM=200)
 ;---------------------------------------------------------
 Draw_BPM:
     ; -- Protect all registers used in this routine --
@@ -881,7 +885,7 @@ draw_digits:
     ; --- 3. DRAW DIGITS ---
     ; Hundreds Digit (Y = 0)
     TST r23
-    BREQ skip_hundreds      ; Don't draw leading zero
+    BREQ skip_hundreds ; Don't draw leading zero
     MOV r26, r23
     LDI px_x, 37
     LDI px_y, 0
