@@ -9,8 +9,6 @@
 ; ATmega328P
 .include "m328pdef.inc"
 
-.include "display.asm"
-
 ; TODO: use some of these ?
 ; .ORG
 ; .DEF
@@ -19,6 +17,9 @@
 ; .SET
 
 .def temp = r16 ; example: define alias "temp" for the register "r16"
+.def px_x = r20 ; Set_Pixel input: X coordinate (0 to 79)
+.def px_y = r21 ; Set_Pixel input: Y coordinate (0 to 6)
+.def px_state = r22 ; Set_Pixel input: State (1=ON, 0=OFF)
 
 .dseg ; define data segment for SRAM
 .org SRAM_START ; (0x0100 ?)
@@ -34,7 +35,9 @@ Prev_JS_Up: .byte 1 ; store previous joystick up state (for edge detection)
 Prev_JS_Left: .byte 1 ; store previous joystick left state (for edge detection)
 Prev_JS_Right: .byte 1 ; store previous joystick right state (for edge detection)
 ; Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay) -> 1 bit per LED
-Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED
+;Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED ; set in display.asm file
+Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
+Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
 .cseg
 
 ; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
@@ -43,10 +46,23 @@ Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 by
     rjmp setup
 
 ; timer2 OVF
-.org OC2Aaddr ; timer 2 overflow interrrupt vector ?
+.org OC2Aaddr ; timer 2 overflow interrrupt vector
     rjmp ISR_Metronome
 
+; timer0 OVF
+.ORG OC0Aaddr
+    RJMP ISR_Display ; Timer 0 Overflow Vector for the Screen Refresh
+
 ; use timer 1 for the buzzer sound notes
+
+; === display ===
+.equ DISPLAY_D      = DDRB
+.equ DISPLAY_PORT     = PORTB
+.equ DISPLAY_PIN      = PINB
+.equ DISPLAY_DATA     = 3
+.equ DISPLAY_CLK      = 5
+.include "display.asm"
+; ===#===
 
 ; -- LEDs
 .equ LED2_D = DDRc
@@ -103,7 +119,6 @@ Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 by
 .equ COL2 = 2
 .equ COL3 = 1
 .equ COL4 = 0
-
 
 ; ; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
 ; ; Timer1 reset value for overflow timing

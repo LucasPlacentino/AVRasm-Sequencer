@@ -6,23 +6,6 @@
 ; License: MIT
 ;
 
-.include "m328pdef.inc"
-
-;------------
-; CONSTANTS
-;------------
-.equ DISPLAY_D      = DDRB
-.equ DISPLAY_PORT     = PORTB
-.equ DISPLAY_PIN      = PINB
-.equ DISPLAY_DATA     = 3
-.equ DISPLAY_CLK      = 5
-
-; === REGISTERS ===
-; .def temp = r16 ; already defined in main file
-.def px_x = r20 ; Set_Pixel input: X coordinate (0 to 79)
-.def px_y = r21 ; Set_Pixel input: Y coordinate (0 to 6)
-.def px_state = r22 ; Set_Pixel input: State (1=ON, 0=OFF)
-
 ;--------
 ; MACROS
 ;--------
@@ -38,19 +21,15 @@
 ; SRAM ALLOCATION (The Unpacked Buffer)
 ; 80 columns * 7 rows = 560 bytes
 ;---------------------------------------------------------
-.DSEG
-.ORG SRAM_START
-Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
-Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
+;.DSEG
+;.ORG SRAM_START
+; Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
+; Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
 
 ;-------
 ; CODE
 ;-------
-.CSEG
-.ORG 0x0000
-    RJMP init
-.ORG 0x0020
-    RJMP ISR_Timer0_OVF_Screen ; Timer 0 Overflow Vector for the Screen Refresh
+;.CSEG
 
 init:
     ; 1. Initialize Stack Pointer (Required for rcall/ret)
@@ -142,7 +121,7 @@ main:
 ; ISR: Timer 0 Overflow (Fires 976 times per second)
 ; Draws exactly ONE row of the 80x7 matrix per execution.
 ;---------------------------------------------------------
-ISR_Timer0_OVF_Screen:
+ISR_Display:
     ; --- 1. Protect Registers ---
     PUSH temp
     IN temp, SREG
