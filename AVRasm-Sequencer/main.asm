@@ -50,7 +50,7 @@ Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
     rjmp ISR_Metronome
 
 ; timer0 OVF
-.ORG OC0Aaddr
+.ORG OVF0addr
     RJMP ISR_Display ; Timer 0 Overflow Vector for the Screen Refresh
 
 ; use timer 1 for the buzzer sound notes
@@ -691,6 +691,9 @@ Update_BPM:
     sts Tempo_Delay+1, r19
     sei ; reenable interrupts
 
+	; BPM is in r17
+	rcall Draw_BPM
+
     ; restore
     pop ZH
     pop ZL
@@ -707,7 +710,7 @@ setup:
 
     sei ; enable interrupts (Set global Interrupt fags)
 
-    ; ~~ old code: ~~
+    /*; ~~ old code: ~~
     ;ldi R16, 1<<TOIE0 ; 0b001
     ldi temp, 0b1
     ;sbi TIMSK0,TOIE0 ; cannot do that
@@ -723,7 +726,21 @@ setup:
     ; 880Hz, f_clk prescaler 256 => 16MHz/256 => 184.977 = 185 initial value for timer to get 880 interrupts per second
     ldi R29, 185
     out TCNT0,R29
-    ; ^^^ old code ^^^
+    ; ^^^ old code ^^^*/
+
+	; ---- Display Hardware Setup ----
+    ldi temp, (1<<DISPLAY_DATA) | (1<<4) | (1<<DISPLAY_CLK)
+    out DISPLAY_D, temp
+    out DISPLAY_PORT, temp
+    ; Initialize Active_Row to 0
+    clr temp
+    sts Active_Row, temp
+    ; ---- Timer 0 (for display) ----
+    ; Normal mode, Prescaler = 64 (16MHz / 64 = 250kHz. Overflow at 256 = ~976Hz)
+    ldi temp, (1<<CS01) | (1<<CS00)
+    out TCCR0B, temp
+    ldi temp, (1<<TOIE0)
+    sts TIMSK0, temp
 
     ; ---- Timer 1 (for notes/sound) ----
     ; -- Configure TCCR1A
