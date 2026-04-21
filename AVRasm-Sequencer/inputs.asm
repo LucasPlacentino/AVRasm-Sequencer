@@ -40,6 +40,16 @@ Inputs_Init:
     sts Prev_JS_Up, temp
     sts Prev_JS_Right, temp
     sts Prev_JS_Left, temp
+
+	; -- init keypad states
+	sts Prev_KP_0, temp
+	; TODO: fill
+	sts Prev_KP_9, temp
+	sts Prev_KP_A, temp
+	; TODO: fill
+	sts Prev_KP_E, temp
+	sts Prev_KP_F, temp
+
 	; ----#----
 	ret
 
