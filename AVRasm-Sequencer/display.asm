@@ -6,6 +6,9 @@
 ; License: MIT
 ;
 
+
+
+/*
 ;--------
 ; MACROS
 ;--------
@@ -537,3 +540,382 @@ Font3x4: ; for hundredth digit of BPM
 ; # #
 ; # #
 ; ###
+
+*/
+
+; === display.asm ===
+
+;--------
+; MACROS
+;--------
+.MACRO shiftBit
+    sbi DISPLAY_PORT, DISPLAY_DATA
+    sbrs @0, @1
+    cbi DISPLAY_PORT, DISPLAY_DATA
+    sbi DISPLAY_PIN, DISPLAY_CLK
+    sbi DISPLAY_PIN, DISPLAY_CLK
+.ENDMACRO
+
+Init_Display:
+
+    ; 3. Initialize Active_Row to 0
+    CLR temp
+    STS Active_Row, temp
+
+    ; 3. Clear the SRAM Buffer to black (0)
+    rcall Clear_Screen
+
+    ; 4. Draw a 2x2 square in the middle using Set_Pixel
+    ; Top-Left (40, 3)
+    LDI px_x, 38      ; X
+    LDI px_y, 3       ; Y
+    LDI px_state, 1       ; State (1 = ON)
+    rcall Set_Pixel
+
+    ; Top-Right (41, 3)
+    LDI px_x, 39
+    LDI px_y, 3
+    LDI px_state, 1
+    rcall Set_Pixel
+
+    ; Bottom-Left (40, 4)
+    LDI px_x, 38
+    LDI px_y, 4
+    LDI px_state, 1
+    rcall Set_Pixel
+
+    ; Bottom-Right (41, 4)
+    LDI px_x, 39
+    LDI px_y, 4
+    LDI px_state, 1
+    rcall Set_Pixel
+
+	; test
+	ldi px_x, 5
+	ldi px_y, 11
+	ldi px_state, 1
+	rcall Set_Pixel
+
+	; test
+	ldi px_x,0
+	ldi px_y,0
+	ldi px_state,1
+	rcall Set_Pixel
+
+	LDI px_y, 13          ; Constant Y coordinate
+    LDI px_state, 1       ; State = ON
+    LDI px_x, 0           ; Start X at 0
+	Draw_Bottom_Line:
+    rcall Set_Pixel       ; Draw the current pixel
+    INC px_x              ; Move 1 pixel to the right
+    CPI px_x, 32          ; Compare X with 32 (the limit)
+    BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
+
+	; TODO: draw everything once
+    rcall Draw_BPM
+	ret
+
+;---------------------------------------------------------
+; ISR: Timer 0 Overflow (Screen Multiplexing)
+;---------------------------------------------------------
+ISR_Display:
+    push temp
+    in temp, SREG
+    push temp
+    push r0
+    push r1
+    push r18
+    push r19
+    push r23
+    push ZL
+    push ZH
+
+    lds r19, Active_Row
+
+    LDI r18, 80
+    MUL r19, r18
+    MOV ZL, r0
+    MOV ZH, r1
+
+    CLR r18
+    ADD ZL, r18
+    ADC ZH, r18
+
+    SUBI ZL, low(-Screen_Buffer)
+    SBCI ZH, high(-Screen_Buffer)
+
+    LDI r18, 80
+isr_ColLoop:
+    LD r1, Z+
+    CBI DISPLAY_PORT, DISPLAY_DATA
+    SBRC r1, 0
+    SBI DISPLAY_PORT, DISPLAY_DATA
+    SBI DISPLAY_PIN, DISPLAY_CLK
+    SBI DISPLAY_PIN, DISPLAY_CLK
+    DEC r18
+    BRNE isr_ColLoop
+
+    CBI DISPLAY_PORT, DISPLAY_DATA
+    SBI DISPLAY_PIN, DISPLAY_CLK
+    SBI DISPLAY_PIN, DISPLAY_CLK
+
+    LDI r23, 0b1000000
+    MOV temp, r19
+    TST temp
+    BREQ skip_shift
+shift_mask_loop:
+    LSR r23
+    DEC temp
+    BRNE shift_mask_loop
+skip_shift:
+
+    shiftBit r23, 6
+    shiftBit r23, 5
+    shiftBit r23, 4
+    shiftBit r23, 3
+    shiftBit r23, 2
+    shiftBit r23, 1
+    shiftBit r23, 0
+
+    SBI DISPLAY_PIN, 4
+    CBI DISPLAY_PORT, 4
+
+    INC r19
+    CPI r19, 7
+    BRNE save_row
+    CLR r19
+save_row:
+    STS Active_Row, r19
+
+    POP ZH
+    POP ZL
+    POP r23
+    POP r19
+    POP r18
+    POP r1
+    POP r0
+    POP temp
+    OUT SREG, temp
+    POP temp
+    RETI
+
+;---------------------------------------------------------
+; Subroutine: Clear_Screen
+; Fills all 560 bytes of the Screen Buffer with 0x00 (Black)
+;---------------------------------------------------------
+Clear_Screen:
+    PUSH ZL
+    PUSH ZH
+    PUSH XL
+    PUSH XH
+    PUSH temp
+
+    LDI ZL, low(Screen_Buffer)
+    LDI ZH, high(Screen_Buffer)
+
+    LDI XL, low(560)            ; Use X register pair as a 16-bit counter
+    LDI XH, high(560)
+    CLR temp                    ; Value to write (0 = OFF)
+
+clear_loop:
+    ST Z+, temp                 ; Write 0 and increment Z pointer
+    SBIW XL, 1                  ; Subtract 1 from the 16-bit counter
+    BRNE clear_loop             ; Loop until the counter hits 0
+
+    POP temp
+    POP XH
+    POP XL
+    POP ZH
+    POP ZL
+    RET
+
+;---------------------------------------------------------
+; Subroutine: Set_Pixel
+; Input: px_x (r20), px_y (r21), px_state (r22)
+;---------------------------------------------------------
+Set_Pixel:
+    PUSH r19
+    PUSH px_x
+    PUSH px_y
+    PUSH ZL
+    PUSH ZH
+    PUSH r0
+    PUSH r1
+
+    CPI px_y, 7
+    BRSH bottom_half_logic
+
+top_half_logic:
+    LDI r19, 79
+    SUB r19, px_x
+    MOV px_x, r19
+    LDI r19, 6
+    SUB r19, px_y
+    MOV px_y, r19
+    RJMP calc_address
+
+bottom_half_logic:
+    LDI r19, 39
+    SUB r19, px_x
+    MOV px_x, r19
+    LDI r19, 13
+    SUB r19, px_y
+    MOV px_y, r19
+
+calc_address:
+    LDI r19, 80
+    MUL px_y, r19
+    MOV ZL, r0
+    MOV ZH, r1
+    CLR r19
+    ADD ZL, px_x
+    ADC ZH, r19
+    SUBI ZL, low(-Screen_Buffer)
+    SBCI ZH, high(-Screen_Buffer)
+    ST Z, px_state
+
+    POP r1
+    POP r0
+    POP ZH
+    POP ZL
+    POP px_y
+    POP px_x
+    POP r19
+    RET
+
+;---------------------------------------------------------
+; Subroutine: Draw_BPM
+; Draws the BPM using the value in r17
+;---------------------------------------------------------
+Draw_BPM:
+    PUSH r23
+    PUSH r24
+    PUSH r25
+    PUSH r26    ; Temp for Digit
+    PUSH px_x
+    PUSH px_y
+
+    LDI px_x, 37
+clear_box_x:
+    LDI px_y, 0
+clear_box_y:
+    LDI px_state, 0
+    rcall Set_Pixel
+    INC px_y
+    CPI px_y, 14
+    BRNE clear_box_y
+    INC px_x
+    CPI px_x, 40
+    BRNE clear_box_x
+
+    CLR r23
+    CLR r24
+    MOV r25, r17
+count_100:
+    CPI r25, 100
+    BRLO count_10
+    SUBI r25, 100
+    INC r23
+    RJMP count_100
+count_10:
+    CPI r25, 10
+    BRLO draw_digits
+    SUBI r25, 10
+    INC r24
+    RJMP count_10
+
+draw_digits:
+    TST r23
+    BREQ skip_hundreds
+    MOV r26, r23
+    LDI px_x, 37
+    LDI px_y, 0
+    rcall Draw_Number_3x4
+skip_hundreds:
+
+    MOV r26, r24
+    LDI px_x, 37
+    LDI px_y, 5
+    rcall Draw_Number_3x4
+
+    MOV r26, r25
+    LDI px_x, 37
+    LDI px_y, 10
+    rcall Draw_Number_3x4
+
+    POP px_y
+    POP px_x
+    POP r26
+    POP r25
+    POP r24
+    POP r23
+    RET
+
+;---------------------------------------------------------
+; Subroutine: Draw_Number_3x4
+; Inputs: r26 (Digit 0-9), px_x (r20), px_y (r21)
+;---------------------------------------------------------
+Draw_Number_3x4:
+    PUSH ZL
+    PUSH ZH
+    PUSH r18
+    PUSH r19
+    PUSH px_x
+    PUSH px_y
+
+    LDI ZL, low(Font3x4 * 2)
+    LDI ZH, high(Font3x4 * 2)
+    LDI r18, 4
+    MUL r26, r18
+    ADD ZL, r0
+    ADC ZH, r1
+
+    LDI r18, 4
+draw_row:
+    LPM r19, Z+
+
+    LDI px_state, 0
+    SBRC r19, 2
+    LDI px_state, 1
+    rcall Set_Pixel
+
+    INC px_x
+    LDI px_state, 0
+    SBRC r19, 1
+    LDI px_state, 1
+    rcall Set_Pixel
+
+    INC px_x
+    LDI px_state, 0
+    SBRC r19, 0
+    LDI px_state, 1
+    rcall Set_Pixel
+
+    DEC px_x
+    DEC px_x
+    INC px_y
+    DEC r18
+    BRNE draw_row
+
+    POP px_y
+    POP px_x
+    POP r19
+    POP r18
+    POP ZH
+    POP ZL
+    RET
+
+;---------------------------------------------------------
+; Font Data
+;---------------------------------------------------------
+Font3x4:
+    .db 0b111, 0b101, 0b101, 0b111  ; 0
+    .db 0b110, 0b010, 0b010, 0b111  ; 1
+    .db 0b111, 0b001, 0b110, 0b111  ; 2
+    .db 0b111, 0b010, 0b001, 0b111  ; 3
+    .db 0b101, 0b101, 0b111, 0b001  ; 4
+    .db 0b111, 0b100, 0b011, 0b111  ; 5
+    .db 0b111, 0b100, 0b111, 0b111  ; 6
+    .db 0b111, 0b001, 0b010, 0b010  ; 7
+    .db 0b111, 0b101, 0b111, 0b111  ; 8
+    .db 0b111, 0b101, 0b111, 0b001  ; 9
