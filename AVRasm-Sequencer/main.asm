@@ -736,10 +736,6 @@ setup:
     out TCNT0,R29
     ; ^^^ old code ^^^*/
 
-	; ---- Display Hardware Setup ----
-    ldi temp, (1<<DISPLAY_DATA) | (1<<4) | (1<<DISPLAY_CLK)
-    out DISPLAY_D, temp
-    out DISPLAY_PORT, temp
     ; ---- Timer 0 (for display) ----
     ; Normal mode, Prescaler = 64 (16MHz / 64 = 250kHz. Overflow at 256 = ~976Hz)
     ldi temp, (1<<CS01) | (1<<CS00)
@@ -776,12 +772,16 @@ setup:
     ; OCIE2A = 1 -> Enable Timer 2 Compare Match A Interrupt
     ldi temp, (1<<OCIE2A)
     sts TIMSK2, temp
+
+	/*
     ; !~~~~~~~~~~
     ; FIXME:
     ; ! temporary for testing, set TIMSK2 to 0 to disable buzzer for now
     ldi temp, 0
     sts TIMSK2, temp
     ; !~~~~~~~~~~
+	*/
+
     ; -- Configure OCR2A (ceiling value of timer 2)
     ; 16MHz / Prescaler 64 = 250,000 ticks/sec
     ; ; 1ms resolution => 1000Hz
@@ -809,6 +809,10 @@ setup:
 
 	; ---- outputs ----
 	; -- screen
+	ldi temp, (1<<DISPLAY_DATA) | (1<<4) | (1<<DISPLAY_CLK)
+    out DISPLAY_D, temp
+    out DISPLAY_PORT, temp
+
 	rcall Init_Display
 
 	; ;buzzer output
