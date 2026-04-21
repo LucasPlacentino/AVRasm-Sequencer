@@ -364,9 +364,11 @@ col3row4: ; "B"
 ; --- COL 4 ---
 col4row1: ; "F"
     ; do something
+	rcall Incr_BPM_btn ; FIXME: debug
     ret
 col4row2: ; "E"
     ; do something
+	rcall Decr_BPM_btn ; FIXME: debug
     ret
 col4row3: ; "D"
     ; do something

@@ -624,6 +624,7 @@ ISR_Display:
     push temp
     push r0
     push r1
+	push r17
     push r18
     push r19
     push r23
@@ -692,6 +693,7 @@ save_row:
     POP r23
     POP r19
     POP r18
+	pop r17
     POP r1
     POP r0
     POP temp
@@ -783,31 +785,82 @@ calc_address:
     POP r19
     RET
 
+; === drawing current step ===
+Draw_Step:
+	push temp
+	push px_x
+	push px_y
+
+	lds temp, Step
+	ldi px_y, 13
+	mov px_x, temp
+	ldi px_state, 1
+    rcall Set_Pixel
+
+	pop px_y
+	pop px_x
+	pop temp
+	ret
+; ===#===
+
 ;---------------------------------------------------------
 ; Subroutine: Draw_BPM
-; Draws the BPM using the value in r17
+; Input: r17 (The current BPM, 60 to 200)
 ;---------------------------------------------------------
 Draw_BPM:
-    PUSH r23
-    PUSH r24
-    PUSH r25
-    PUSH r26    ; Temp for Digit
+    ; -- Protect all registers used in this routine --
+    PUSH r18
+    PUSH r19
+    PUSH r23    ; Hundreds
+    PUSH r24    ; Tens
+    PUSH r25    ; Units
+    PUSH r26    ; Digit to draw
     PUSH px_x
     PUSH px_y
+    PUSH ZL
+    PUSH ZH
 
-    LDI px_x, 37
-clear_box_x:
-    LDI px_y, 0
-clear_box_y:
-    LDI px_state, 0
-    rcall Set_Pixel
-    INC px_y
-    CPI px_y, 14
-    BRNE clear_box_y
-    INC px_x
-    CPI px_x, 40
-    BRNE clear_box_x
+    ; --- 1. OPTIMIZED CLEAR (Fix 2) ---
+    ; Instead of 42 slow calls to Set_Pixel, we wipe columns directly in SRAM.
+    ; Visually, we want to clear columns 37-39 for all 14 rows.
+    ; In our 80x7 hardware layout, this corresponds to:
+    ; - Bottom Half: Hardware Columns 37, 38, 39.
+    ; - Top Half: Hardware Columns 77, 78, 79.
+    LDI r18, 7                  ; Loop through the 7 physical hardware rows
+    LDI ZL, low(Screen_Buffer)
+    LDI ZH, high(Screen_Buffer)
+    CLR temp                    ; temp (r16) = 0 (LED OFF)
 
+clear_bpm_area:
+    ; Wipe Hardware Columns 37, 38, 39 (Panel 1 / Bottom Half)
+    ; We use 'std' (Store with Displacement) for speed.
+    std Z+37, temp
+    std Z+38, temp
+    std Z+39, temp
+
+    ; Wipe Hardware Columns 77, 78, 79 (Panel 2 / Top Half)
+    ; Displacement limit is 63, so we manually add 77 to Z temporarily.
+    PUSH ZL
+    PUSH ZH
+    LDI r19, 77
+    ADD ZL, r19
+    CLR r19
+    ADC ZH, r19
+    ST Z+, temp                 ; Store 0 to Col 77
+    ST Z+, temp                 ; Store 0 to Col 78
+    ST Z, temp                  ; Store 0 to Col 79
+    POP ZH
+    POP ZL
+
+    ; Move Z to the start of the next 80-byte hardware row
+    LDI r19, 80
+    ADD ZL, r19
+    CLR r19
+    ADC ZH, r19
+    DEC r18
+    BRNE clear_bpm_area
+
+    ; --- 2. BINARY TO BCD (Digit Splitting) ---
     CLR r23
     CLR r24
     MOV r25, r17
@@ -825,30 +878,39 @@ count_10:
     RJMP count_10
 
 draw_digits:
+    ; --- 3. DRAW DIGITS ---
+    ; Hundreds Digit (Y = 0)
     TST r23
-    BREQ skip_hundreds
+    BREQ skip_hundreds      ; Don't draw leading zero
     MOV r26, r23
     LDI px_x, 37
     LDI px_y, 0
     rcall Draw_Number_3x4
 skip_hundreds:
 
+    ; Tens Digit (Y = 5)
     MOV r26, r24
     LDI px_x, 37
     LDI px_y, 5
     rcall Draw_Number_3x4
 
+    ; Units Digit (Y = 10)
     MOV r26, r25
     LDI px_x, 37
     LDI px_y, 10
     rcall Draw_Number_3x4
 
+    ; -- Restore Registers --
+    POP ZH
+    POP ZL
     POP px_y
     POP px_x
     POP r26
     POP r25
     POP r24
     POP r23
+    POP r19
+    POP r18
     RET
 
 ;---------------------------------------------------------
