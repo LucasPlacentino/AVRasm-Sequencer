@@ -26,26 +26,21 @@ Init_Display:
     ; 3. Clear the SRAM Buffer to black (0)
     rcall Clear_Screen
 
-    ; test
+    ; FIXME: test
     ldi px_x, 5
     ldi px_y, 8
     ldi px_state, 1
     rcall Set_Pixel
-/*
-    ; test
-    ldi px_x,0
-    ldi px_y,0
-    ldi px_state,1
-    rcall Set_Pixel
-*/
-    LDI px_y, 13          ; Constant Y coordinate
-    LDI px_state, 1       ; State = ON
-    LDI px_x, 0           ; Start X at 0
-    Draw_Bottom_Line:
-    rcall Set_Pixel       ; Draw the current pixel
-    INC px_x              ; Move 1 pixel to the right
-    CPI px_x, 32          ; Compare X with 32 (the limit)
-    BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
+
+    ; ; FIXME: test
+    ; LDI px_y, 13          ; Constant Y coordinate
+    ; LDI px_state, 1       ; State = ON
+    ; LDI px_x, 0           ; Start X at 0
+    ; Draw_Bottom_Line:
+    ; rcall Set_Pixel       ; Draw the current pixel
+    ; INC px_x              ; Move 1 pixel to the right
+    ; CPI px_x, 32          ; Compare X with 32 (the limit)
+    ; BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
 
     ; TODO: draw everything once
     rcall Draw_BPM
@@ -227,8 +222,20 @@ Draw_Step:
     push px_x
     push px_y
 
+    ; -- clear all steps
+    ldi temp, 0
+    ldi px_y, 12
+    ldi px_x, 0
+    ldi px_state, 0
+clear_steps_loop:
+    rcall Set_Pixel
+    inc px_x
+    cpi px_x, 32
+    brne clear_steps_loop
+
+    ; -- draw current step
     lds temp, Step
-    ldi px_y, 13
+    ldi px_y, 12
     mov px_x, temp
     ldi px_state, 1
     rcall Set_Pixel

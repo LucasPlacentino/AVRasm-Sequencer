@@ -509,6 +509,7 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
 
     ; -- advance sequencer step
     rcall Next_Step
+    rcall Draw_Step
 
     End_ISR_Metronome:
     ; -- restore stack
