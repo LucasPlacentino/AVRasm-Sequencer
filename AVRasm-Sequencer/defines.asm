@@ -455,14 +455,63 @@ BPM_Table:
 .equ MIN_BPM = 60
 
 ; === Default Startup Melody Data ===
+; 0xFF is blank note (mute)
+; NOTE: these were generated using an LLM !
+;       (i'm not a musician and dont know music theory)
+
+; Ode to Joy (Octave 4), 32 steps
+; Default_Melody:
+;     ; Measure 1: E, E, F, G
+;     .db 40, 0xFF, 40, 0xFF, 41, 0xFF, 43, 0xFF
+;     ; Measure 2: G, F, E, D
+;     .db 43, 0xFF, 41, 0xFF, 40, 0xFF, 38, 0xFF
+;     ; Measure 3: C, C, D, E
+;     .db 36, 0xFF, 36, 0xFF, 38, 0xFF, 40, 0xFF
+;     ; Measure 4: E (dotted), D (eighth), D (half)
+;     .db 40, 0xFF, 0xFF, 38, 38, 0xFF, 0xFF, 0xFF
+
+; Super Mario Bros - Overworld Theme (32 steps)
+; Default_Melody:
+;     ; Measure 1: E4, E4, (rest), E4, (rest), C4, E4, (rest)
+;     .db 40, 40, 0xFF, 40, 0xFF, 36, 40, 0xFF
+;     ; Measure 2: G4, (restx3), G3, (restx3)
+;     .db 43, 0xFF, 0xFF, 0xFF, 31, 0xFF, 0xFF, 0xFF
+;     ; Measure 3: C4, (restx2), G3, (restx2), E3, (rest)
+;     .db 36, 0xFF, 0xFF, 31, 0xFF, 0xFF, 28, 0xFF
+;     ; Measure 4: (rest), A3, (rest), B3, (rest), Bb3, A3, (rest)
+;     .db 0xFF, 33, 0xFF, 35, 0xFF, 34, 33, 0xFF
+
+; Tetris Theme (Korobeiniki) - 32 steps (Lower Octave)
+; Default_Melody:
+;     ; Measure 1: E4 (quarter), B3 (8th), C4 (8th), D4 (quarter), C4 (8th), B3 (8th)
+;     .db 40, 0xFF, 35, 36, 38, 0xFF, 36, 35
+;     ; Measure 2: A3 (quarter), A3 (8th), C4 (8th), E4 (quarter), D4 (8th), C4 (8th)
+;     .db 33, 0xFF, 33, 36, 40, 0xFF, 38, 36
+;     ; Measure 3: B3 (dotted-quarter), C4 (8th), D4 (quarter), E4 (quarter)
+;     .db 35, 0xFF, 35, 36, 38, 0xFF, 40, 0xFF
+;     ; Measure 4: C4 (quarter), A3 (quarter), A3 (quarter), (rest)
+;     .db 36, 0xFF, 33, 0xFF, 33, 0xFF, 0xFF, 0xFF
+
+; Star Wars - Main Theme (32 steps) ; doesn't sound good
+; Default_Melody:
+;     ; Measure 1: C3 (Half), G3 (Half)
+;     .db 24, 24, 24, 0xFF, 31, 31, 31, 31
+;     ; Measure 2: F3, E3, D3 (Triplet-ish), C4 (Half)
+;     .db 30, 28, 26, 0xFF, 36, 36, 36, 36
+;     ; Measure 3: G3 (Half), F3, E3, D3 (Triplet-ish)
+;     .db 31, 31, 31, 31, 30, 28, 26, 0xFF
+;     ; Measure 4: C4 (Half), G3 (Half)
+;     .db 36, 36, 36, 0xFF, 31, 31, 31, 31
+
+; Imperial March (Darth Vader's Theme) - 32 steps
 Default_Melody:
-    ; Ode to Joy (Octave 4). 0xFF is used to mute the buzzer.
-    ; Measure 1: E, E, F, G
-    .db 40, 0xFF, 40, 0xFF, 41, 0xFF, 43, 0xFF
-    ; Measure 2: G, F, E, D
-    .db 43, 0xFF, 41, 0xFF, 40, 0xFF, 38, 0xFF
-    ; Measure 3: C, C, D, E
-    .db 36, 0xFF, 36, 0xFF, 38, 0xFF, 40, 0xFF
-    ; Measure 4: E (dotted), D (eighth), D (half)
-    .db 40, 0xFF, 0xFF, 38, 38, 0xFF, 0xFF, 0xFF
+    ; Measure 1: G3, G3, G3, Eb3 (8th), Bb3 (16th)
+    .db 31, 0xFF, 31, 0xFF, 31, 0xFF, 27, 34
+    ; Measure 2: G3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
+    .db 31, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+    ; Measure 3: D4, D4, D4, Eb4 (8th), Bb3 (16th)
+    .db 38, 0xFF, 38, 0xFF, 38, 0xFF, 39, 34
+    ; Measure 4: Gb3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
+    .db 30, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+
 ; ===#===
