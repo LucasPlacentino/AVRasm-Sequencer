@@ -100,6 +100,7 @@ Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
 ; .equ BZ_TGL_PIN = PINb
 
 ; -- buzzer
+.equ BZ_D = DDRb
 .equ BZ_P = PORTb
 .equ BZ_I = 1
 
@@ -394,9 +395,9 @@ setup:
 
     rcall Init_Display
 
-    ; ;buzzer output
-    ; sbi BZ_OUT_DIR,BZ_OUT_IDX ;set buzzer out pin dir to output(1)
-    ; cbi BZ_OUT_BANK,BZ_OUT_IDX ;clear buzzer to off
+    ; -- buzzer output
+    sbi BZ_D,BZ_I ;set buzzer out pin dir to output(1)
+    cbi BZ_P,BZ_I ;clear buzzer to off
 
     ; -- leds output
     sbi LED2_D,LED2_I ;set led2 out pin dir to output(1)
