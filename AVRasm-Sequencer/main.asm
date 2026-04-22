@@ -288,33 +288,15 @@ Update_BPM:
 
 ; === Setup sequence, runs once on startup ===
 setup:
-    ; initialize stack pointer (just to be sure)
-    ldi temp, high(RAMEND)
-    out SPH, temp
-    ldi temp, low(RAMEND)
-    out SPL, temp
+    ; initialize stack pointer (just to be sure), not necessary
+    ;ldi temp, high(RAMEND)
+    ;out SPH, temp
+    ;ldi temp, low(RAMEND)
+    ;out SPL, temp
 
-    ldi temp, 1; default to playing (not paused) ; FIXME: choose?
+	; -- init playing state
+    ldi temp, 0; default to playing or paused (0:paused, 1:playing) ; TODO: choose which?
     sts Is_Playing, temp ; paused or playing by default (on startup)
-
-
-    /*; ~~ old code: ~~
-    ;ldi R16, 1<<TOIE0 ; 0b001
-    ldi temp, 0b1
-    ;sbi TIMSK0,TOIE0 ; cannot do that
-    sts TIMSK0,temp ; enable timer 0 overflow interrupt ; store to SRAM (TIMSK0 is in Extended I/O space so in SRAM)
-    ;set timer 0 to normal mode
-    ldi temp, 0b000 ; normal mode
-    out TCCR0A,temp ; write to TCCR0A to set normal mode
-    ; set timer0 prescaler to 256 (0b100)
-    ;ldi R16, 1<<CS02 ; combine bits for prescaler 256
-    ldi temp, 0b100 ; combine bits for prescaler 256
-    out TCCR0B,temp ; write to TCCR0B to set prescaler
-    ; timer0 initial value to get 880 interrupts per second
-    ; 880Hz, f_clk prescaler 256 => 16MHz/256 => 184.977 = 185 initial value for timer to get 880 interrupts per second
-    ldi R29, 185
-    out TCNT0,R29
-    ; ^^^ old code ^^^*/
 
     ; ---- Timer 0 (for display) ----
     ; Normal mode, Prescaler = 64 (16MHz / 64 = 250kHz. Overflow at 256 = ~976Hz)

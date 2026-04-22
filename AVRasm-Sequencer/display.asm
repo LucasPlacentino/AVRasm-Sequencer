@@ -66,6 +66,7 @@ Startup_Display:
 
     rcall Draw_Sequence
     rcall Draw_Octave
+	rcall Draw_Step
 
     pop r17
     ret
@@ -341,7 +342,7 @@ Draw_Octave:
     push px_y
 
     lds r26, Current_Octave ; Get the current octave (e.g., 0, 1, 2, 3)
-    
+
     ; Current_Octave is 0-indexed, so add 1
     inc r26
 
