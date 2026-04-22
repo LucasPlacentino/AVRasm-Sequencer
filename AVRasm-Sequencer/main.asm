@@ -450,9 +450,9 @@ Init_Sequence:
     ; load rest/mute value
     ;ldi temp, 0xFF ; 0xFF means mute
     ; FIXME: DEBUG
-    ;ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
+    ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
     ; FIXME: DEBUG
-    ldi temp, 21 ; NOTE_A2 is idx 21, A (2nd octave) FIXME: for testing
+    ;ldi temp, 21 ; NOTE_A2 is idx 21, A (2nd octave) FIXME: for testing
     ; set below loop duration to the 32 steps
     ldi r17, 32
 Fill_Sequence:

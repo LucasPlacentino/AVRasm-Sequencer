@@ -126,10 +126,9 @@ Handle_Joystick:
     eor r17, r18 ; XOR flips 1 to 0, and 0 to 1
     sts Is_Playing, r17
 
-    ; TODO: ??
     ; instantly mute buzzer if just paused
     sbrs r17, 0 ; skip mute if bit 0 is set (playing = 1)
-    rcall Mute_Buzzer ; mute if paused (0) ; TODO: something else
+    rcall Mute_Buzzer ; mute if paused (0) ; TODO: something else?
 
     ; TODO: ?
     rjmp Handle_Joystick_End ; ignore rest of joystick handling if just clicked ?

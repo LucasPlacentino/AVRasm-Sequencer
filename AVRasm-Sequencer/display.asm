@@ -26,11 +26,11 @@ Init_Display:
     ; 3. Clear the SRAM Buffer to black (0)
     rcall Clear_Screen
 
-    ; FIXME: test
-    ldi px_x, 5
-    ldi px_y, 8
-    ldi px_state, 1
-    rcall Set_Pixel
+    ; ; FIXME: test
+    ; ldi px_x, 5
+    ; ldi px_y, 8
+    ; ldi px_state, 1
+    ; rcall Set_Pixel
 
     ; ; FIXME: test
     ; LDI px_y, 13          ; Constant Y coordinate
@@ -44,6 +44,7 @@ Init_Display:
 
     ; TODO: draw everything once
     rcall Draw_BPM
+    rcall Draw_Sequence
     ret
 
 ;---------------------------------------------------------
@@ -242,6 +243,67 @@ clear_steps_loop:
 
     pop px_y
     pop px_x
+    pop temp
+    ret
+; ===#===
+
+; === drawing the entire sequence ===
+Draw_Sequence:
+    push temp
+    push r17
+    push px_x
+    push px_y
+    push px_state
+    push ZL
+    push ZH
+
+    ldi ZL, low(Sequence)
+    ldi ZH, high(Sequence)
+    ldi px_x, 0 ; Start at column 0
+
+draw_seq_loop:
+    ; 1. Clear the column for this step (Y=0 to 11)
+    ldi px_y, 0
+    ldi px_state, 0
+clear_col_loop:
+    rcall Set_Pixel
+    inc px_y
+    cpi px_y, 12
+    brne clear_col_loop
+
+    ; 2. Read the note from the Sequence array
+    ld r17, Z+
+    cpi r17, 0xFF ; Check if it's a rest/mute
+    breq next_step_draw ; skip drawing if muted
+
+    ; 3. Calculate note index Modulo 12 (pitch class)
+mod_12_loop:
+    cpi r17, 12
+    brlo mod_12_done
+    subi r17, 12
+    rjmp mod_12_loop
+mod_12_done:
+
+    ; 4. Map to Y coordinate: 11 - note
+    ; This puts C at the bottom (y=11) and B at the top (y=0)
+    ldi px_y, 11
+    sub px_y, r17
+
+    ; 5. Draw the pixel
+    ldi px_state, 1
+    rcall Set_Pixel
+
+next_step_draw:
+    inc px_x
+    cpi px_x, 32
+    brne draw_seq_loop ; Loop for all 32 steps
+
+    pop ZH
+    pop ZL
+    pop px_state
+    pop px_y
+    pop px_x
+    pop r17
     pop temp
     ret
 ; ===#===
