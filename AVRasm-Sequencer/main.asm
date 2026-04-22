@@ -383,7 +383,7 @@ setup:
     sts Step, temp ; store default step in SRAM
 
     ; -- init octave
-    ldi temp, 1 ; default octave 1 (0-4)
+    ldi temp, 3 ; default octave 1 (0-3)
     sts Current_Octave, temp ; store default octave in SRAM
 
     ; -- init bpm
@@ -422,32 +422,47 @@ setup:
 Init_Sequence:
     push ZL
     push ZH
+	push XL
+	push XH
     push r17
     push temp
 
-    ; z pointer to base address of the sequence in SRAM
-    ldi ZL, low(Sequence)
-    ldi ZH, high(Sequence)
+    ; -- x pointer to base address of the sequence in SRAM
+    ldi XL, low(Sequence)
+    ldi XH, high(Sequence)
+
+	; -- z pointer to base address of the default melody in Flash mem (only z for Flash!)
+	ldi ZL, low(Default_Melody * 2)
+    ldi ZH, high(Default_Melody * 2)
+
     ; load rest/mute value
     ;ldi temp, 0xFF ; 0xFF means mute
-    ; FIXME: DEBUG
-    ;ldi temp, 45 ; NOTE_A4 is idx 45, A (4th octave) FIXME: for testing
-    ; FIXME: DEBUG
-    ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
-    ; FIXME: DEBUG
-    ;ldi temp, 21 ; NOTE_A2 is idx 21, A (2nd octave) FIXME: for testing
+
+    ; DEBUG:
+    ;ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
+
     ; set below loop duration to the 32 steps
     ldi r17, 32
 Fill_Sequence:
-    ; store rest/mute value in sequence and auto-increment z pointer to next byte in SRAM
-    st Z+, temp
-    ; decr counter and loop if not zero
+    ; ; store rest/mute value in sequence and auto-increment z pointer to next byte in SRAM
+    ; st X+, temp
+    ; ; decr counter and loop if not zero
+    ; dec r17
+    ; brne Fill_Sequence
+    ; ; Sequence is initialized with all mutes/rests
+
+	lpm temp, Z+ ; load note index from default melody
+    st X+, temp ; store note index into Sequence
     dec r17
     brne Fill_Sequence
-    ; Sequence is initialized with all mutes/rests
+	; Sequence is initialized with the default melody
+
+
 
     pop temp
     pop r17
+	pop XH
+	pop XL
     pop ZH
     pop ZL
     ret

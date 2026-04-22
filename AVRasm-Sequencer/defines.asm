@@ -453,3 +453,16 @@ BPM_Table:
 
 .equ MAX_BPM = 200
 .equ MIN_BPM = 60
+
+; === Default Startup Melody Data ===
+Default_Melody:
+    ; Ode to Joy (Octave 4). 0xFF is used to mute the buzzer.
+    ; Measure 1: E, E, F, G
+    .db 40, 0xFF, 40, 0xFF, 41, 0xFF, 43, 0xFF
+    ; Measure 2: G, F, E, D
+    .db 43, 0xFF, 41, 0xFF, 40, 0xFF, 38, 0xFF
+    ; Measure 3: C, C, D, E
+    .db 36, 0xFF, 36, 0xFF, 38, 0xFF, 40, 0xFF
+    ; Measure 4: E (dotted), D (eighth), D (half)
+    .db 40, 0xFF, 0xFF, 38, 38, 0xFF, 0xFF, 0xFF
+; ===#===
