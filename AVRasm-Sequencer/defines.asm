@@ -504,14 +504,27 @@ BPM_Table:
 ;     .db 36, 36, 36, 0xFF, 31, 31, 31, 31
 
 ; Imperial March (Darth Vader's Theme) - 32 steps
+; Default_Melody:
+;     ; Measure 1: G3, G3, G3, Eb3 (8th), Bb3 (16th)
+;     .db 31, 0xFF, 31, 0xFF, 31, 0xFF, 27, 34
+;     ; Measure 2: G3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
+;     .db 31, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+;     ; Measure 3: D4, D4, D4, Eb4 (8th), Bb3 (16th)
+;     .db 38, 0xFF, 38, 0xFF, 38, 0xFF, 39, 34
+;     ; Measure 4: Gb3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
+;     .db 30, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+
+; Seven Nation Army - The White Stripes (32 steps), sounds best around 70bpm
 Default_Melody:
-    ; Measure 1: G3, G3, G3, Eb3 (8th), Bb3 (16th)
-    .db 31, 0xFF, 31, 0xFF, 31, 0xFF, 27, 34
-    ; Measure 2: G3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
-    .db 31, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
-    ; Measure 3: D4, D4, D4, Eb4 (8th), Bb3 (16th)
-    .db 38, 0xFF, 38, 0xFF, 38, 0xFF, 39, 34
-    ; Measure 4: Gb3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
-    .db 30, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+    ; --- FIRST LOOP ---
+    ; Measure 1: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
+    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
+    ; Measure 2: C4 (half), B3 (half)
+    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
+    ; --- SECOND LOOP ---
+    ; Measure 3: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
+    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
+    ; Measure 4: C4 (half), B3 (half)
+    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
 
 ; ===#===

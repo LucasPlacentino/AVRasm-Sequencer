@@ -56,12 +56,22 @@ Prev_KP_F: .byte 1
 ;Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED ; set in display.asm file
 Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
 Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
+Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies)
+Preset_Melody_1: .byte 32 ; preset melody 1 (32 steps)
+Preset_Melody_2: .byte 32 ; preset melody 2 (32 steps)
+Preset_Melody_3: .byte 32 ; preset melody 3 (32 steps)
+Preset_Melody_4: .byte 32 ; preset melody 4 (32 steps)
+User_Melody_1: .byte 32 ; user melody 1 (32 steps)
+User_Melody_2: .byte 32 ; user melody 2 (32 steps)
+User_Melody_3: .byte 32 ; user melody 3 (32 steps)
+User_Melody_4: .byte 32 ; user melody 4 (32 steps)
 .cseg
-
-; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
 
 .org 0x0000
     rjmp setup
+
+; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
+; use timer 1 for the buzzer sound notes
 
 ; timer2 OVF
 .org OC2Aaddr ; timer 2 overflow interrrupt vector
@@ -70,8 +80,6 @@ Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
 ; timer0 OVF
 .ORG OVF0addr
     RJMP ISR_Display ; Timer 0 Overflow Vector for the Screen Refresh
-
-; use timer 1 for the buzzer sound notes
 
 ; === display ===
 .equ DISPLAY_D = DDRb
