@@ -587,9 +587,9 @@ col4row3: ; "D" => D#
     pop temp
     ret
 col4row4: ; "C"
-    ; do something
-    ; clear/mute note
-    ; TODO: implement
+    ; clear/mute current step note
+    ldi r17, 0xFF ; special value meaning "no note" or "mute"
+    rcall Set_Current_Sequence_Note
     ret
 ; ===#===
 
