@@ -9,13 +9,13 @@
 ;--------
 ; MACROS
 ;--------
-.MACRO shiftBit
+.macro shiftBit_macro
     sbi DISPLAY_PORT, DISPLAY_DATA_I
     sbrs @0, @1
     cbi DISPLAY_PORT, DISPLAY_DATA_I
     sbi DISPLAY_PIN, DISPLAY_CLK_I
     sbi DISPLAY_PIN, DISPLAY_CLK_I
-.ENDMACRO
+.endmacro
 
 Init_Display:
 
@@ -43,8 +43,21 @@ Init_Display:
     ; BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
 
     ; TODO: draw everything once
+    ; rcall Draw_BPM
+    ; rcall Draw_Sequence
+    ; rcall Draw_Octave
+
+    ret
+
+Startup_Display:
+    push r17
+    lds r17, Current_BPM
     rcall Draw_BPM
+
     rcall Draw_Sequence
+    rcall Draw_Octave
+
+    pop r17
     ret
 
 ;---------------------------------------------------------
@@ -102,13 +115,13 @@ shift_mask_loop:
     BRNE shift_mask_loop
 skip_shift:
 
-    shiftBit r23, 6
-    shiftBit r23, 5
-    shiftBit r23, 4
-    shiftBit r23, 3
-    shiftBit r23, 2
-    shiftBit r23, 1
-    shiftBit r23, 0
+    shiftBit_macro r23, 6
+    shiftBit_macro r23, 5
+    shiftBit_macro r23, 4
+    shiftBit_macro r23, 3
+    shiftBit_macro r23, 2
+    shiftBit_macro r23, 1
+    shiftBit_macro r23, 0
 
     SBI DISPLAY_PIN, 4
     CBI DISPLAY_PORT, 4
@@ -307,6 +320,29 @@ next_step_draw:
     pop temp
     ret
 ; ===#===
+
+;---------------------------------------------------------
+; Subroutine: Draw_Octave
+; Prints Current_Octave at x=33, y=5
+;---------------------------------------------------------
+Draw_Octave:
+    push r26
+    push px_x
+    push px_y
+
+    lds r26, Current_Octave ; Get the current octave (e.g., 0, 1, 2, 3)
+    
+    ; Current_Octave is 0-indexed, so add 1
+    inc r26
+
+    ldi px_x, 33            ; Set X coordinate
+    ldi px_y, 5             ; Set Y coordinate
+    rcall Draw_Number_3x4   ; Draw the 3x4 digit
+
+    pop px_y
+    pop px_x
+    pop r26
+    ret
 
 ;---------------------------------------------------------
 ; Subroutine: Draw_BPM

@@ -414,6 +414,7 @@ setup:
     cbi LED3_P,LED3_I ;clear led3 to off
     ; ----#----
 
+    rcall Startup_Display ; start the display with initial values shown
     sei ; enable interrupts (Set global Interrupt fags)
     rjmp loop
 ; ===#===

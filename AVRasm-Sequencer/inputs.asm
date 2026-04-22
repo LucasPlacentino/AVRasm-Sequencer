@@ -151,7 +151,7 @@ Handle_Joystick:
     brlo joystick_up
 
     ; -- joystick in center (or in deadzone)
-    rcall joystick_center
+    rjmp joystick_center
 
     Handle_Joystick_End:
 
@@ -168,7 +168,7 @@ joystick_left:
     sts Prev_JS_Right, temp ; reset prev joystick x state to center
     ; -- move to previous step
     rcall Prev_Step_btn
-    ret
+    rjmp Handle_Joystick_End
 joystick_right:
     ; -- reset states
     clr temp ; default joystick state
@@ -177,7 +177,7 @@ joystick_right:
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
     ; -- move to next step
     rcall Next_Step_btn
-    ret
+    rjmp Handle_Joystick_End
 joystick_down:
     ; -- reset states
     clr temp ; default joystick state
@@ -187,7 +187,7 @@ joystick_down:
     ; -- decrease BPM
     rcall Decr_BPM_btn
     rcall LED3_ON ; FIXME: DEBUG
-    ret
+    rjmp Handle_Joystick_End
 joystick_up:
     ; -- reset states
     clr temp ; default joystick state
@@ -197,7 +197,7 @@ joystick_up:
     ; -- increase BPM
     rcall Incr_BPM_btn
     rcall LED2_ON ; FIXME: DEBUG
-    ret
+    rjmp Handle_Joystick_End
 
 ; FIXME: for DEBUG:
 joystick_center:
@@ -209,7 +209,7 @@ joystick_center:
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
     rcall LED2_OFF
     rcall LED3_OFF
-    ret
+    rjmp Handle_Joystick_End
 
 Read_ADC:
     ; input: r18 = ADC channel to read (0-7)
@@ -413,9 +413,21 @@ col1row3: ; "1" => C
     pop temp
     ret
 col1row4: ; "A"
-    ; do something
-    ; decrease octave ?
-    ; TODO: implement
+    ; decrease octave
+    push r18
+
+    rcall LED3_ON ; FIXME: DEBUG
+
+    lds r18, Current_Octave ; get current octave
+    cpi r18, 1 ; compare with min octave (1)
+    brlo Skip_Decr_Octave ; if octave < 1, skip decrease
+
+    dec r18 ; decrease octave
+    sts Current_Octave, r18 ; save new octave
+    rcall Draw_Octave ; update octave on screen
+
+    Skip_Decr_Octave:
+    pop r18
     ret
 
 ; --- COL 2 ---
@@ -471,9 +483,21 @@ col2row3: ; "2" => C#
     pop temp
     ret
 col2row4: ; "0"
-    ; do something
-    ; increase octave ?
-    ; TODO: implement
+    ; increase octave
+    push r18
+
+    rcall LED2_ON ; FIXME: DEBUG
+
+    lds r18, Current_Octave ; get current octave
+    cpi r18, 4 ; compare with max octave (4)
+    brsh Skip_Incr_Octave ; if octave > 4, skip increase
+
+    inc r18 ; increase octave
+    sts Current_Octave, r18 ; save new octave
+    rcall Draw_Octave ; update octave on screen
+
+    Skip_Incr_Octave:
+    pop r18
     ret
 
 ; --- COL 3 ---
@@ -549,7 +573,6 @@ col4row1: ; "F" => B
 
     pop r18
     pop temp
-    rcall Incr_BPM_btn ; FIXME: debug
     ret
 col4row2: ; "E" => G
     push temp
@@ -567,7 +590,6 @@ col4row2: ; "E" => G
 
     pop r18
     pop temp
-    rcall Decr_BPM_btn ; FIXME: debug
     ret
 col4row3: ; "D" => D#
     push temp
@@ -621,20 +643,6 @@ Next_Step_btn:
     ldi r22, 1 ; new state is right 1
     sts Prev_JS_Right, r22 ; save new state
     ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-    ; -- increase current step
-    ; TODO: implement
-    ; ; if we're on last step, loop back to first
-    ; lds r23, Step
-    ; cpi r23, 31 ; compare with max step idx (31 for 32 steps)
-    ; brsh Reset_Step ; if step idx >= 31, reset to 0
-    ; inc r23 ; next step
-    ; sts Step, r23 ; save new step idx
-    ; rjmp End_Next_Step
-    ; ; -- loop back to first step
-    ; Reset_Step:
-    ; clr r23 ; reset to step 0
-    ; sts Step, r23
-    ; End_Next_Step:
 
     rcall Next_Step
     rcall LED2_ON ; FIXME: DEBUG
@@ -653,20 +661,6 @@ Prev_Step_Btn:
     ldi r22, 1 ; new state is left 1
     sts Prev_JS_Left, r22 ; save new state
     ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-    ; -- decrease current step
-    ; TODO: implement
-    ; ; if we're on first step, loop back to last
-    ; lds r23, Step
-    ; cpi r23, 1 ; compare with min step idx (0, but 1 because < not <=)
-    ; brlo Set_Last_Step ; if step idx < 1, set to last step idx
-    ; dec r23 ; previous step
-    ; sts Step, r23 ; save new step idx
-    ; rjmp End_Previous_Step
-    ; ; -- loop back to last step
-    ; Set_Last_Step:
-    ; ldi r23, 31 ; set to last step (31 for 32 steps bc 0-indexed)
-    ; sts Step, r23
-    ; End_Previous_Step:
 
     rcall Prev_Step
     rcall LED3_ON ; FIXME: DEBUG
