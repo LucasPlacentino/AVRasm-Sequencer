@@ -483,7 +483,8 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     mov r19, r17 ; copy high byte of Tick Counter to r19 for comparison
     subi r18, low(5000) ; 2000 for 0.1ms resolution = 200ms
     sbci r19, high(5000) ; sub with carry for high byte
-    brne Skip_Reset_Btn_States ; if not 200ms yet, skip reset
+    ;brne Skip_Reset_Btn_States ; if not 200ms yet, skip reset ; fixed below
+    brlo Skip_Reset_Btn_States ; if not 200ms yet, skip reset
     rcall Reset_Prev_Btn_States
     Skip_Reset_Btn_States:
 
@@ -492,7 +493,8 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     lds ZH, Tempo_Delay+1
     cp r16, ZL
     cpc r17, ZH
-    brne End_ISR_Metronome ; if delay not reached: exit
+    ;brne End_ISR_Metronome ; if delay not reached: exit ; fixed below
+    brlo End_ISR_Metronome ; if delay not reached: exit
 
     ; -- delay reached: reset Tick Counter to 0
     clr temp ; aka ldi temp,0
