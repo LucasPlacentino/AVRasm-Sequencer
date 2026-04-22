@@ -74,11 +74,11 @@ Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
 ; use timer 1 for the buzzer sound notes
 
 ; === display ===
-.equ DISPLAY_D      = DDRB
-.equ DISPLAY_PORT     = PORTB
-.equ DISPLAY_PIN      = PINB
-.equ DISPLAY_DATA     = 3
-.equ DISPLAY_CLK      = 5
+.equ DISPLAY_D = DDRb
+.equ DISPLAY_PORT = PORTb
+.equ DISPLAY_PIN = PINb
+.equ DISPLAY_DATA_I = 3
+.equ DISPLAY_CLK_I = 5
 .include "display.asm"
 ; ===#===
 
@@ -196,6 +196,18 @@ Play_Note:
     sbis SW_SENSE, SW_I ; Skip if Bit in I/o reg is Set
     rjmp Note_Mute ; disable sound if input pin of switch is low
 
+    ; FIXME: REMOVE ; DEBUG !
+    push px_x
+    push px_y
+    push px_state
+    ldi px_x, 0
+    ldi px_y, 0
+    ldi px_state, 0 ; turn on pixel at top-left corner of the screen
+    rcall Set_Pixel
+    pop px_state
+    pop px_y
+    pop px_x
+
     ; -- unmute buzzer
     ldi temp, (1<<COM1A0) ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match (TCCR1A) ; 1<<COM1A0
     sts TCCR1A, temp
@@ -205,6 +217,18 @@ Play_Note:
 Note_Mute:
     ; no note (mute)
     rcall Mute_Buzzer
+    
+    ; FIXME: REMOVE ; DEBUG !
+    push px_x
+    push px_y
+    push px_state
+    ldi px_x, 0
+    ldi px_y, 0
+    ldi px_state, 1 ; turn on pixel at top-left corner of the screen
+    rcall Set_Pixel
+    pop px_state
+    pop px_y
+    pop px_x
 
 End_Play_Note:
     pop ZH
@@ -294,8 +318,8 @@ setup:
     ldi temp, low(RAMEND)
     out SPL, temp
 
-    clr temp;
-    sts Is_Playing, temp ; paused by default (on startup)
+    ldi temp, 1; default to playing (not paused) ; FIXME: choose?
+    sts Is_Playing, temp ; paused or playing by default (on startup)
 
 
     /*; ~~ old code: ~~
@@ -373,14 +397,13 @@ setup:
     sts OCR2A, temp
     ; ----#----
 
-    rcall Inputs_Init ;
-
+    rcall Inputs_Init ; initialize inputs (switch, joystick, keypad)
 
     ; -- init sequence in SRAM
     rcall Init_Sequence ; clear sequence
 
     ; -- init step
-    clr temp ; default step 0
+    ldi temp, 0 ; default step 0
     sts Step, temp ; store default step in SRAM
 
     ; -- init bpm
@@ -389,15 +412,19 @@ setup:
 
     ; ---- outputs ----
     ; -- screen
-    ldi temp, (1<<DISPLAY_DATA) | (1<<4) | (1<<DISPLAY_CLK)
+    ;! do not "poison" the other pins on the same port (PORTb)
+    in temp, DISPLAY_D ; read current DDRb config to not mess with other pins
+    ori temp, (1<<DISPLAY_DATA_I) | (1<<4) | (1<<DISPLAY_CLK_I) ; or with display bits
     out DISPLAY_D, temp
+    in temp, DISPLAY_PORT ; read current PORTb config to not mess with other pins
+    ori temp, (1<<DISPLAY_DATA_I) | (1<<4) | (1<<DISPLAY_CLK_I) ; or with display bits
     out DISPLAY_PORT, temp
 
     rcall Init_Display
 
     ; -- buzzer output
-    sbi BZ_D,BZ_I ;set buzzer out pin dir to output(1)
-    cbi BZ_P,BZ_I ;clear buzzer to off
+    sbi BZ_D,BZ_I ; set buzzer out pin dir to output(1)
+    cbi BZ_P,BZ_I ; clear buzzer output to low
 
     ; -- leds output
     sbi LED2_D,LED2_I ;set led2 out pin dir to output(1)
@@ -423,7 +450,9 @@ Init_Sequence:
     ; load rest/mute value
     ;ldi temp, 0xFF ; 0xFF means mute
     ; FIXME: DEBUG
-    ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
+    ;ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
+    ; FIXME: DEBUG
+    ldi temp, 21 ; NOTE_A2 is idx 21, A (2nd octave) FIXME: for testing
     ; set below loop duration to the 32 steps
     ldi r17, 32
 Fill_Sequence:
@@ -494,7 +523,7 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     ; yeah keep running the Metronome even during pause to keep the timing, just skip the note-playing part
     lds temp, Is_Playing
     sbrs temp, 0 ; Skip if Bit in Register Set (first bit is 0 if paused, 1 if playing)
-    rjmp End_Sequence_Play_Note ; still want to advance step even if paused
+    rjmp End_ISR_Metronome ; do not advance step when paused ?
 
     ; -- play note for current step
     lds r17, Step ; get current step index
@@ -506,7 +535,7 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     ld r17, Z ; load current step's note index into r17
     rcall Play_Note ; play the note for the current step (r17 is input idx)
 
-    End_Sequence_Play_Note: ; still want to advance step even if paused
+    End_Sequence_Play_Note: ; not used anymore
 
     ; -- advance sequencer step
     rcall Next_Step

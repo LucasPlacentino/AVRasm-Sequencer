@@ -128,7 +128,7 @@ Handle_Joystick:
 
     ; TODO: ??
     ; instantly mute buzzer if just paused
-    sbrc r17, 0 ; skip mute if bit 0 is set (playing = 1)
+    sbrs r17, 0 ; skip mute if bit 0 is set (playing = 1)
     rcall Mute_Buzzer ; mute if paused (0) ; TODO: something else
 
     ; TODO: ?
