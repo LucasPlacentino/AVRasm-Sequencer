@@ -361,14 +361,56 @@ col4pressed:
     ret
 
 ; --- COL 1 ---
-col1row1: ; "7"
-    ; do something
+col1row1: ; "7" => G#
+    push temp
+    push r18
+
+    ldi r17, 8 ; NOTE_G#* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
-col1row2: ; "4"
-    ; do something
+col1row2: ; "4" => E
+    push temp
+    push r18
+
+    ldi r17, 4 ; NOTE_E* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
-col1row3: ; "1"
-    ; do something
+col1row3: ; "1" => C
+    push temp
+    push r18
+
+    ldi r17, 0  ; NOTE_C* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
 col1row4: ; "A"
     ; do something
@@ -377,14 +419,56 @@ col1row4: ; "A"
     ret
 
 ; --- COL 2 ---
-col2row1: ; "8"
-    ; do something
+col2row1: ; "8" => A
+    push temp
+    push r18
+
+    ldi r17, 9 ; NOTE_A* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
-col2row2: ; "5"
-    ; do something
+col2row2: ; "5" => F
+    push temp
+    push r18
+
+    ldi r17, 5  ; NOTE_F* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
-col2row3: ; "2"
-    ; do something
+col2row3: ; "2" => C#
+    push temp
+    push r18
+
+    ldi r17, 1  ; NOTE_C#* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
 col2row4: ; "0"
     ; do something
@@ -393,30 +477,114 @@ col2row4: ; "0"
     ret
 
 ; --- COL 3 ---
-col3row1: ; "9"
-    ; do something
+col3row1: ; "9" => A#
+    push temp
+    push r18
+
+    ldi r17, 10 ; NOTE_A#* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
-col3row2: ; "6"
-    ; do something
+col3row2: ; "6" => F#
+    push temp
+    push r18
+
+    ldi r17, 6 ; NOTE_F#* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
-col3row3: ; "3"
-    ; do something
+col3row3: ; "3" => D
+    push temp
+    push r18
+
+    ldi r17, 2  ; NOTE_D* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
 col3row4: ; "B"
     ; do something
     ret
 
 ; --- COL 4 ---
-col4row1: ; "F"
-    ; do something
+col4row1: ; "F" => B
+    push temp
+    push r18
+
+    ldi r17, 11 ; NOTE_B* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     rcall Incr_BPM_btn ; FIXME: debug
     ret
-col4row2: ; "E"
-    ; do something
+col4row2: ; "E" => G
+    push temp
+    push r18
+
+    ldi r17, 7 ; NOTE_G* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     rcall Decr_BPM_btn ; FIXME: debug
     ret
-col4row3: ; "D"
-    ; do something
+col4row3: ; "D" => D#
+    push temp
+    push r18
+
+    ldi r17, 3  ; NOTE_D#* idx
+
+    ; add octave offset to note idx (12 notes per octave)
+    lds r18, Current_Octave ; get current octave
+    ldi temp, 12
+    mul r18, temp ; octave num * 12 ; RESULT IS IN r1(high-byte):r0(low-byte)
+    add r17, r0 ; add octave offset to note idx (only low-byte of mult result)
+
+    rcall Set_Current_Sequence_Note
+
+    pop r18
+    pop temp
     ret
 col4row4: ; "C"
     ; do something
@@ -561,5 +729,41 @@ Decr_BPM_btn:
     Skip_Decr_BPM_btn:
     pop r17
     pop temp
+    ret
+; ===#===
+
+; === Set Current Sequence Note ===
+; input r17 is note idx to put at the current step
+Set_Current_Sequence_Note:
+    push ZL
+    push ZH
+    push r18
+    push temp
+
+    ; get the current step, 0-31
+    lds r18, Step
+
+    ; set z pointer to start of Sequence
+    ldi ZL, low(Sequence)
+    ldi ZH, high(Sequence)
+
+    ; add Step offset to z pointer (Sequence + Step)
+    clr temp
+    add ZL, r18
+    adc ZH, temp
+
+    ; store the newest note into SRAM
+    st Z, r17
+
+    ; update the screen
+    rcall Draw_Sequence
+
+    ; play note instantly to hear it
+    rcall Play_Note
+
+    pop temp
+    pop r18
+    pop ZH
+    pop ZL
     ret
 ; ===#===

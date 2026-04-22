@@ -25,6 +25,7 @@
 .org SRAM_START ; (0x0100 ?)
 Sequence: .byte 32 ; 32 bytes for the 32 steps
 Step: .byte 1 ; keep traack of step number (0 to 31)
+Current_Octave: .byte 1 ; keep track of current octave (0 to 4)
 Tick_Counter: .byte 2 ; 16bit counter for milliseconds
 Tempo_Delay: .byte 2 ; 16bit delay (in ms) based on BPM, kinda rounded (sufficiently precise)
 Current_BPM: .byte 1 ; store current BPM (value between 60 and 200)
@@ -196,18 +197,6 @@ Play_Note:
     sbis SW_SENSE, SW_I ; Skip if Bit in I/o reg is Set
     rjmp Note_Mute ; disable sound if input pin of switch is low
 
-    ; FIXME: REMOVE ; DEBUG !
-    push px_x
-    push px_y
-    push px_state
-    ldi px_x, 0
-    ldi px_y, 0
-    ldi px_state, 0 ; turn on pixel at top-left corner of the screen
-    rcall Set_Pixel
-    pop px_state
-    pop px_y
-    pop px_x
-
     ; -- unmute buzzer
     ldi temp, (1<<COM1A0) ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match (TCCR1A) ; 1<<COM1A0
     sts TCCR1A, temp
@@ -217,18 +206,6 @@ Play_Note:
 Note_Mute:
     ; no note (mute)
     rcall Mute_Buzzer
-    
-    ; FIXME: REMOVE ; DEBUG !
-    push px_x
-    push px_y
-    push px_state
-    ldi px_x, 0
-    ldi px_y, 0
-    ldi px_state, 1 ; turn on pixel at top-left corner of the screen
-    rcall Set_Pixel
-    pop px_state
-    pop px_y
-    pop px_x
 
 End_Play_Note:
     pop ZH
@@ -406,6 +383,10 @@ setup:
     ldi temp, 0 ; default step 0
     sts Step, temp ; store default step in SRAM
 
+    ; -- init octave
+    ldi temp, 1 ; default octave 1 (0-4)
+    sts Current_Octave, temp ; store default octave in SRAM
+
     ; -- init bpm
     ldi r17, 120 ; default BPM
     rcall Update_BPM ; set BPM (save in SRAM and update Tempo_Delay)
@@ -449,6 +430,8 @@ Init_Sequence:
     ldi ZH, high(Sequence)
     ; load rest/mute value
     ;ldi temp, 0xFF ; 0xFF means mute
+    ; FIXME: DEBUG
+    ;ldi temp, 45 ; NOTE_A4 is idx 45, A (4th octave) FIXME: for testing
     ; FIXME: DEBUG
     ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
     ; FIXME: DEBUG
