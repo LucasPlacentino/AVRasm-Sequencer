@@ -72,6 +72,11 @@ User_Inputs:
 
 ; === reset all btn states to 0 ===
 Reset_Prev_Btn_States:
+    rcall Reset_Prev_JS_States
+    rcall Reset_Prev_KP_States
+    ret
+
+Reset_Prev_JS_States:
     push temp
 
     clr temp
@@ -81,6 +86,14 @@ Reset_Prev_Btn_States:
     sts Prev_JS_Up, temp
     sts Prev_JS_Right, temp
     sts Prev_JS_Left, temp
+
+    pop temp
+    ret
+
+Reset_Prev_KP_States:
+    push temp
+
+    clr temp
 
     sts Prev_KP_0, temp
     sts Prev_KP_1, temp
@@ -342,7 +355,7 @@ kp_polling_1:
 
 no_kp_pressed:
     ; TODO: do something/nothing ?
-    rcall Reset_Prev_Btn_States ; reset all btn states to 0 (no btn pressed)
+    rcall Reset_Prev_KP_States ; reset all btn states to 0 (no btn pressed)
     ret
 
 col1pressed:
@@ -840,6 +853,7 @@ col4row4: ; "C" => mute(no note/blank) current step
 
 ; === handle manual sequencer steps ===
 Next_Step_btn:
+    push temp
     push r22
     ; advance to next step in sequence
     ; -- edge detection
@@ -854,11 +868,18 @@ Next_Step_btn:
     rcall Draw_Step
     rcall LED2_ON ; FIXME: DEBUG
 
+    ; if paused, play the note at the new step
+    lds temp, Is_Playing
+    sbrs temp, 0 ; Skip if bit 0 is set (playing)
+    rcall play_new_step_note_manual ; If paused, play the note
+
     Skip_Right_Check:
     pop r22
+    pop temp
     ret
 
 Prev_Step_Btn:
+    push temp
     push r22
     ; move back to previous step in sequence
     ; -- edge detection
@@ -873,8 +894,36 @@ Prev_Step_Btn:
     rcall Draw_Step
     rcall LED3_ON ; FIXME: DEBUG
 
+    ; if paused, play the note at the new step
+    lds temp, Is_Playing
+    sbrs temp, 0 ; Skip if bit 0 is set (playing)
+    rcall play_new_step_note_manual ; If paused, play the note
+
     Skip_Left_Check:
     pop r22
+    pop temp
+    ret
+
+play_new_step_note_manual:
+    push ZL
+    push ZH
+    push r17
+    push temp
+
+    ; -- play note for current step
+    lds r17, Step ; get current step index
+    ldi ZL, low(Sequence)
+    ldi ZH, high(Sequence)
+    clr temp ; clear temp for high byte addition
+    add ZL, r17 ; add step index to z pointer to point to current step's note in sequence
+    adc ZH, temp ; add carry to high byte (ZH) from low byte addition
+    ld r17, Z ; load current step's note index into r17
+    rcall Play_Note ; play the note for the current step (r17 is input idx)
+
+    pop temp
+    pop r17
+    pop ZH
+    pop ZL
     ret
 ; ===#===
 
