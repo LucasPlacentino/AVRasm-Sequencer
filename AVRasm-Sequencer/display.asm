@@ -47,6 +47,16 @@ Init_Display:
     ; rcall Draw_Sequence
     ; rcall Draw_Octave
 
+    ; -- draw separator line (between sequence and step indicator)
+    ldi px_y, 12
+    ldi px_state, 1
+    ldi px_x, 0
+    draw_separator_loop:
+    rcall Set_Pixel
+    inc px_x
+    cpi px_x, 32
+    brne draw_separator_loop
+
     ret
 
 Startup_Display:
@@ -238,7 +248,7 @@ Draw_Step:
 
     ; -- clear all steps
     ldi temp, 0
-    ldi px_y, 12
+    ldi px_y, 13
     ldi px_x, 0
     ldi px_state, 0
 clear_steps_loop:
@@ -249,7 +259,7 @@ clear_steps_loop:
 
     ; -- draw current step
     lds temp, Step
-    ldi px_y, 12
+    ldi px_y, 13
     mov px_x, temp
     ldi px_state, 1
     rcall Set_Pixel

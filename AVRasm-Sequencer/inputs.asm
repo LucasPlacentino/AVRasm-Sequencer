@@ -70,9 +70,12 @@ User_Inputs:
     rjmp loop
 ; ===#===
 
-; === reset all btn states ===
+; === reset all btn states to 0 ===
 Reset_Prev_Btn_States:
+    push temp
+
     clr temp
+
     sts Prev_JS_Click, temp
     sts Prev_JS_Down, temp
     sts Prev_JS_Up, temp
@@ -95,6 +98,9 @@ Reset_Prev_Btn_States:
     sts Prev_KP_D, temp
     sts Prev_KP_E, temp
     sts Prev_KP_F, temp
+
+    pop temp
+    ret
 ; ===#===
 
 ; === handle joystick inputs ===
@@ -335,7 +341,8 @@ kp_polling_1:
     ret ; i guess shoudln't happen
 
 no_kp_pressed:
-    ; do something/nothing ?
+    ; TODO: do something/nothing ?
+    rcall Reset_Prev_Btn_States ; reset all btn states to 0 (no btn pressed)
     ret
 
 col1pressed:
@@ -365,6 +372,17 @@ col1row1: ; "7" => G#
     push temp
     push r18
 
+    ; -- edge detection, check KP_7 state
+    lds temp, Prev_KP_7
+    tst temp ; test for 0
+    brne Skip_KP_7 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_7, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
+
     ldi r17, 8 ; NOTE_G#* idx
 
     ; add octave offset to note idx (12 notes per octave)
@@ -375,12 +393,24 @@ col1row1: ; "7" => G#
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_7:
     pop r18
     pop temp
     ret
 col1row2: ; "4" => E
     push temp
     push r18
+
+    ; -- edge detection, check KP_4 state
+    lds temp, Prev_KP_4
+    tst temp ; test for 0
+    brne Skip_KP_4 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_4, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 4 ; NOTE_E* idx
 
@@ -392,12 +422,24 @@ col1row2: ; "4" => E
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_4:
     pop r18
     pop temp
     ret
 col1row3: ; "1" => C
     push temp
     push r18
+
+    ; -- edge detection, check KP_1 state
+    lds temp, Prev_KP_1
+    tst temp ; test for 0
+    brne Skip_KP_1 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_1, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 0  ; NOTE_C* idx
 
@@ -409,12 +451,24 @@ col1row3: ; "1" => C
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_1:
     pop r18
     pop temp
     ret
 col1row4: ; "A"
     ; decrease octave
     push r18
+
+    ; -- edge detection, check KP_A state
+    lds temp, Prev_KP_A
+    tst temp ; test for 0
+    brne Skip_Decr_Octave ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_A, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     rcall LED3_ON ; FIXME: DEBUG
 
@@ -435,6 +489,17 @@ col2row1: ; "8" => A
     push temp
     push r18
 
+    ; -- edge detection, check KP_8 state
+    lds temp, Prev_KP_8
+    tst temp ; test for 0
+    brne Skip_KP_8 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_8, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
+
     ldi r17, 9 ; NOTE_A* idx
 
     ; add octave offset to note idx (12 notes per octave)
@@ -445,12 +510,24 @@ col2row1: ; "8" => A
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_8:
     pop r18
     pop temp
     ret
 col2row2: ; "5" => F
     push temp
     push r18
+
+    ; -- edge detection, check KP_5 state
+    lds temp, Prev_KP_5
+    tst temp ; test for 0
+    brne Skip_KP_5 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_5, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 5  ; NOTE_F* idx
 
@@ -462,12 +539,24 @@ col2row2: ; "5" => F
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_5:
     pop r18
     pop temp
     ret
 col2row3: ; "2" => C#
     push temp
     push r18
+
+    ; -- edge detection, check KP_2 state
+    lds temp, Prev_KP_2
+    tst temp ; test for 0
+    brne Skip_KP_2 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_2, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 1  ; NOTE_C#* idx
 
@@ -479,6 +568,7 @@ col2row3: ; "2" => C#
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_2:
     pop r18
     pop temp
     ret
@@ -486,11 +576,22 @@ col2row4: ; "0"
     ; increase octave
     push r18
 
+    ; -- edge detection, check KP_0 state
+    lds temp, Prev_KP_0
+    tst temp ; test for 0
+    brne Skip_Incr_Octave ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_0, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
+
     rcall LED2_ON ; FIXME: DEBUG
 
     lds r18, Current_Octave ; get current octave
-    cpi r18, 4 ; compare with max octave (4)
-    brsh Skip_Incr_Octave ; if octave > 4, skip increase
+    cpi r18, 3 ; compare with max octave (4 but 0-indexed)
+    brsh Skip_Incr_Octave ; if octave > 3, skip increase
 
     inc r18 ; increase octave
     sts Current_Octave, r18 ; save new octave
@@ -505,6 +606,17 @@ col3row1: ; "9" => A#
     push temp
     push r18
 
+    ; -- edge detection, check KP_9 state
+    lds temp, Prev_KP_9
+    tst temp ; test for 0
+    brne Skip_KP_9 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_9, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
+
     ldi r17, 10 ; NOTE_A#* idx
 
     ; add octave offset to note idx (12 notes per octave)
@@ -515,12 +627,24 @@ col3row1: ; "9" => A#
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_9:
     pop r18
     pop temp
     ret
 col3row2: ; "6" => F#
     push temp
     push r18
+
+    ; -- edge detection, check KP_6 state
+    lds temp, Prev_KP_6
+    tst temp ; test for 0
+    brne Skip_KP_6 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_6, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 6 ; NOTE_F#* idx
 
@@ -532,12 +656,24 @@ col3row2: ; "6" => F#
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_6:
     pop r18
     pop temp
     ret
 col3row3: ; "3" => D
     push temp
     push r18
+
+    ; -- edge detection, check KP_3 state
+    lds temp, Prev_KP_3
+    tst temp ; test for 0
+    brne Skip_KP_3 ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_3, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 2  ; NOTE_D* idx
 
@@ -549,17 +685,46 @@ col3row3: ; "3" => D
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_3:
     pop r18
     pop temp
     ret
 col3row4: ; "B"
-    ; do something
+    ; TODO: do something ?
+    push temp
+
+    ; -- edge detection, check KP_B state
+    lds temp, Prev_KP_B
+    tst temp ; test for 0
+    brne Skip_KP_B ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_B, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
+
+    ; ...
+
+    Skip_KP_B:
+    pop temp
     ret
 
 ; --- COL 4 ---
 col4row1: ; "F" => B
     push temp
     push r18
+
+    ; -- edge detection, check KP_F state
+    lds temp, Prev_KP_F
+    tst temp ; test for 0
+    brne Skip_KP_F ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_F, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 11 ; NOTE_B* idx
 
@@ -571,12 +736,24 @@ col4row1: ; "F" => B
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_F:
     pop r18
     pop temp
     ret
 col4row2: ; "E" => G
     push temp
     push r18
+
+    ; -- edge detection, check KP_E state
+    lds temp, Prev_KP_E
+    tst temp ; test for 0
+    brne Skip_KP_E ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_E, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 7 ; NOTE_G* idx
 
@@ -588,12 +765,24 @@ col4row2: ; "E" => G
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_E:
     pop r18
     pop temp
     ret
 col4row3: ; "D" => D#
     push temp
     push r18
+
+    ; -- edge detection, check KP_D state
+    lds temp, Prev_KP_D
+    tst temp ; test for 0
+    brne Skip_KP_D ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_D, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
 
     ldi r17, 3  ; NOTE_D#* idx
 
@@ -605,13 +794,30 @@ col4row3: ; "D" => D#
 
     rcall Set_Current_Sequence_Note
 
+    Skip_KP_D:
     pop r18
     pop temp
     ret
-col4row4: ; "C"
+col4row4: ; "C" => mute(no note/blank) current step
     ; clear/mute current step note
-    ldi r17, 0xFF ; special value meaning "no note" or "mute"
-    rcall Set_Current_Sequence_Note
+    push temp
+
+    ; -- edge detection, check KP_C state
+    lds temp, Prev_KP_C
+    tst temp ; test for 0
+    brne Skip_KP_C ; state didn't change, skip
+
+    ldi temp, 1
+    sts Prev_KP_C, temp ; store new state (1)
+    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+
+    ; -- it changed to 0 (aka pressed)
+
+    ldi r17, 0xFF ; special idx meaning "no note" or "mute"
+    rcall Set_Current_Sequence_Note ; input is r17 = note idx
+
+    Skip_KP_C:
+    pop temp
     ret
 ; ===#===
 
@@ -645,6 +851,7 @@ Next_Step_btn:
     ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
 
     rcall Next_Step
+    rcall Draw_Step
     rcall LED2_ON ; FIXME: DEBUG
 
     Skip_Right_Check:
@@ -663,6 +870,7 @@ Prev_Step_Btn:
     ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
 
     rcall Prev_Step
+    rcall Draw_Step
     rcall LED3_ON ; FIXME: DEBUG
 
     Skip_Left_Check:

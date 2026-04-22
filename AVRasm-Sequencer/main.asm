@@ -9,7 +9,6 @@
 ; ATmega328P
 .include "m328pdef.inc"
 
-; TODO: use some of these ?
 ; .ORG
 ; .DEF
 ; .EQU
@@ -551,6 +550,7 @@ Next_Step:
     clr temp ; aka ldi temp,0
     sts Step, temp
     End_Next_Step:
+    rcall Reset_Prev_Btn_States
     ret
 
 Prev_Step:
@@ -566,6 +566,7 @@ Prev_Step:
     ldi temp, 31
     sts Step, temp
     End_Prev_Step:
+    rcall Reset_Prev_Btn_States
     ret
 
 ; === outputs ===
