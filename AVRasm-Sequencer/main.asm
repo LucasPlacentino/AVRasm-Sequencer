@@ -7,7 +7,7 @@
 ;
 
 ; ATmega328P
-.include "m328pdef.inc"
+.include "m328Pdef.inc"
 
 ; use:
 ; .org !
