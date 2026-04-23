@@ -6,6 +6,8 @@
 ; License: MIT
 ;
 
+; this file is just for some .equ and preset data in flash mem
+
 ; ; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
 ; ; Timer1 reset value for overflow timing
 ; ; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
@@ -128,27 +130,27 @@
 ; === Notes LUT ===
 ; to play a sound, load the note index into a reg (r17), then using a LUT to get the correct value to put in ocr1a ? rather than too many branches
 ; store this LUT in the flash mem:
-; 49 notes (idx 0 to 48)
+; 48 notes (idx 0 to 47)
 Note_Table:
 ; .dw is define word(s)
-    ; --- octave 1 (idx 0 to 11) ---
+    ; -- octave 1 (idx 0 to 11)
     .dw NOTE_C1, NOTE_CS1, NOTE_D1, NOTE_DS1
     .dw NOTE_E1, NOTE_F1, NOTE_FS1, NOTE_G1
     .dw NOTE_GS1, NOTE_A1, NOTE_AS1, NOTE_B1
-    ; --- octave 2 (ixd 12 to 23) ---
+    ; -- octave 2 (ixd 12 to 23)
     .dw NOTE_C2, NOTE_CS2, NOTE_D2, NOTE_DS2
     .dw NOTE_E2, NOTE_F2, NOTE_FS2, NOTE_G2
     .dw NOTE_GS2, NOTE_A2, NOTE_AS2, NOTE_B2
-    ; --- octave 3 (idx 24 to 35) ---
+    ; -- octave 3 (idx 24 to 35)
     .dw NOTE_C3, NOTE_CS3, NOTE_D3, NOTE_DS3
     .dw NOTE_E3, NOTE_F3, NOTE_FS3, NOTE_G3
     .dw NOTE_GS3, NOTE_A3, NOTE_AS3, NOTE_B3
-    ; --- octave 4 (idx 36 to 47) ---
+    ; -- octave 4 (idx 36 to 47)
     .dw NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4
     .dw NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4
     .dw NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4
-;    ; --- octave 5 (idx 48) ---
-;    .dw NOTE_C5
+;    ; -- octave 5 (idx 48)
+;    .dw NOTE_C5 ; let's only use 4 octaves it's good enough
 ; 0xFF will be no sound
 ; ===#===
 
@@ -300,6 +302,7 @@ Note_Table:
 ;     .dw 75 ; 198 BPM
 ;     .dw 74 ; 199 BPM
 ;     .dw 74 ; 200 BPM
+; ; hmh not precise enough, too rounded
 ; ; ===#===
 
 ; ==== BPM LUT (0.1ms res) ===
@@ -460,7 +463,7 @@ BPM_Table:
 ;       (i'm not a musician and dont know music theory)
 
 ; Ode to Joy (Octave 4), 32 steps
-; Default_Melody:
+; Preset_Melody_1:
 ;     ; Measure 1: E, E, F, G
 ;     .db 40, 0xFF, 40, 0xFF, 41, 0xFF, 43, 0xFF
 ;     ; Measure 2: G, F, E, D
@@ -471,7 +474,7 @@ BPM_Table:
 ;     .db 40, 0xFF, 0xFF, 38, 38, 0xFF, 0xFF, 0xFF
 
 ; Super Mario Bros - Overworld Theme (32 steps)
-; Default_Melody:
+; Preset_Melody_2:
 ;     ; Measure 1: E4, E4, (rest), E4, (rest), C4, E4, (rest)
 ;     .db 40, 40, 0xFF, 40, 0xFF, 36, 40, 0xFF
 ;     ; Measure 2: G4, (restx3), G3, (restx3)
@@ -482,7 +485,7 @@ BPM_Table:
 ;     .db 0xFF, 33, 0xFF, 35, 0xFF, 34, 33, 0xFF
 
 ; Tetris Theme (Korobeiniki) - 32 steps (Lower Octave)
-; Default_Melody:
+; Preset_Melody_3:
 ;     ; Measure 1: E4 (quarter), B3 (8th), C4 (8th), D4 (quarter), C4 (8th), B3 (8th)
 ;     .db 40, 0xFF, 35, 36, 38, 0xFF, 36, 35
 ;     ; Measure 2: A3 (quarter), A3 (8th), C4 (8th), E4 (quarter), D4 (8th), C4 (8th)
@@ -492,19 +495,19 @@ BPM_Table:
 ;     ; Measure 4: C4 (quarter), A3 (quarter), A3 (quarter), (rest)
 ;     .db 36, 0xFF, 33, 0xFF, 33, 0xFF, 0xFF, 0xFF
 
-; Star Wars - Main Theme (32 steps) ; doesn't sound good
-; Default_Melody:
-;     ; Measure 1: C3 (Half), G3 (Half)
-;     .db 24, 24, 24, 0xFF, 31, 31, 31, 31
-;     ; Measure 2: F3, E3, D3 (Triplet-ish), C4 (Half)
-;     .db 30, 28, 26, 0xFF, 36, 36, 36, 36
-;     ; Measure 3: G3 (Half), F3, E3, D3 (Triplet-ish)
-;     .db 31, 31, 31, 31, 30, 28, 26, 0xFF
-;     ; Measure 4: C4 (Half), G3 (Half)
-;     .db 36, 36, 36, 0xFF, 31, 31, 31, 31
+;; Star Wars - Main Theme (32 steps) ; doesn't sound good
+;; Default_Melody_no:
+;;     ; Measure 1: C3 (Half), G3 (Half)
+;;     .db 24, 24, 24, 0xFF, 31, 31, 31, 31
+;;     ; Measure 2: F3, E3, D3 (Triplet-ish), C4 (Half)
+;;     .db 30, 28, 26, 0xFF, 36, 36, 36, 36
+;;     ; Measure 3: G3 (Half), F3, E3, D3 (Triplet-ish)
+;;     .db 31, 31, 31, 31, 30, 28, 26, 0xFF
+;;     ; Measure 4: C4 (Half), G3 (Half)
+;;     .db 36, 36, 36, 0xFF, 31, 31, 31, 31
 
 ; Imperial March (Darth Vader's Theme) - 32 steps
-; Default_Melody:
+; Preset_Melody_4:
 ;     ; Measure 1: G3, G3, G3, Eb3 (8th), Bb3 (16th)
 ;     .db 31, 0xFF, 31, 0xFF, 31, 0xFF, 27, 34
 ;     ; Measure 2: G3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)

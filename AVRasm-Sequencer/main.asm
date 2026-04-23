@@ -9,16 +9,22 @@
 ; ATmega328P
 .include "m328pdef.inc"
 
-; .ORG
-; .DEF
-; .EQU
-; .DW
-; .SET
+; use:
+; .org !
+; .def
+; .equ
+; .dw
+; .db
+; .set
+; etc
+
+; the Z pointer, ZL and ZH are registers R30 and R31, used as a pointer for flash memory access (lpm instruction)
+; the X pointer, XL and XH are registers R26 and R27, used as a pointer for SRAM access (st/ld instructions)
 
 .def temp = r16 ; example: define alias "temp" for the register "r16"
-.def px_x = r20 ; Set_Pixel input: X coordinate (0 to 79)
-.def px_y = r21 ; Set_Pixel input: Y coordinate (0 to 6)
-.def px_state = r22 ; Set_Pixel input: State (1=ON, 0=OFF)
+.def px_x = r20 ; Set_Pixel input, x coordinate (0 to 39)
+.def px_y = r21 ; Set_Pixel input, y coordinate (0 to 13)
+.def px_state = r22 ; Set_Pixel input, LED pixel state (1=ON, 0=OFF)
 
 .dseg ; define data segment for SRAM
 .org SRAM_START ; (0x0100 ?)
