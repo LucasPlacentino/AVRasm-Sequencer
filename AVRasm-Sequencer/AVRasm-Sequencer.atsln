@@ -5,8 +5,6 @@ VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{18226A42-8477-4023-8AD2-40C49DA407C9}") = "AVRasm-Sequencer", "AVRasm-Sequencer.asmproj", "{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}"
 EndProject
-Project("{18226A42-8477-4023-8AD2-40C49DA407C9}") = "ScreenTesting", "..\ScreenTesting\ScreenTesting.asmproj", "{6A4E4FA0-7BDD-41FE-A562-DC80C72144D8}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|AVR = Debug|AVR
@@ -17,10 +15,6 @@ Global
 		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Debug|AVR.Build.0 = Debug|AVR
 		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Release|AVR.ActiveCfg = Release|AVR
 		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Release|AVR.Build.0 = Release|AVR
-		{6A4E4FA0-7BDD-41FE-A562-DC80C72144D8}.Debug|AVR.ActiveCfg = Debug|AVR
-		{6A4E4FA0-7BDD-41FE-A562-DC80C72144D8}.Debug|AVR.Build.0 = Debug|AVR
-		{6A4E4FA0-7BDD-41FE-A562-DC80C72144D8}.Release|AVR.ActiveCfg = Release|AVR
-		{6A4E4FA0-7BDD-41FE-A562-DC80C72144D8}.Release|AVR.Build.0 = Release|AVR
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

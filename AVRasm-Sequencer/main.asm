@@ -62,7 +62,7 @@ Prev_KP_F: .byte 1
 ;Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED ; set in display.asm file
 Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
 Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
-Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies)
+;Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies) ; future extra feature
 Preset_Melody_1: .byte 32 ; preset melody 1 (32 steps)
 Preset_Melody_2: .byte 32 ; preset melody 2 (32 steps)
 Preset_Melody_3: .byte 32 ; preset melody 3 (32 steps)
@@ -93,7 +93,7 @@ User_Melody_4: .byte 32 ; user melody 4 (32 steps)
 .equ DISPLAY_PIN = PINb
 .equ DISPLAY_DATA_I = 3
 .equ DISPLAY_CLK_I = 5
-.include "display.asm"
+.include "display.inc"
 ; ===#===
 
 ; -- LEDs
@@ -153,10 +153,10 @@ User_Melody_4: .byte 32 ; user melody 4 (32 steps)
 .equ COL3 = 1
 .equ COL4 = 0
 
-.include "inputs.asm"
+.include "inputs.inc"
 ; ===#===
 
-.include "defines.asm" ; all the notes timer overeflow declarations etc
+.include "defines.inc" ; all the notes timer overeflow declarations etc
 
 ; example:
 ;Play_Note_C4:
@@ -314,7 +314,11 @@ setup:
 
     ; ---- Timer 0 (for display) ----
     ; Normal mode, Prescaler = 64 (16MHz / 64 = 250kHz. Overflow at 256 = ~976Hz)
-    ldi temp, (1<<CS01) | (1<<CS00)
+    ldi temp, (1<<CS01) | (1<<CS00) ; prescaler 64
+    ;ldi temp, (1<<CS00) ; prescaler 1, just for testing
+    ;ldi temp, (1<<CS01) ; prescaler 8, just for testing
+    ;ldi temp, (1<<CS02) ; prescaler 256, just for testing
+    ;ldi temp, (1<<CS02) | (1<<CS00) ; prescaler 1012, just for testing
     out TCCR0B, temp
     ldi temp, (1<<TOIE0)
     sts TIMSK0, temp
@@ -383,7 +387,7 @@ setup:
     sts Current_Octave, temp ; store default octave in SRAM
 
     ; -- init bpm
-    ldi r17, 80 ; default BPM
+    ldi r17, 108 ; default BPM
     rcall Update_BPM ; set BPM (save in SRAM and update Tempo_Delay)
 
     ; ---- outputs ----

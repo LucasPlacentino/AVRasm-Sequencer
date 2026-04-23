@@ -1,5 +1,5 @@
 ;
-; display.asm :
+; display.inc :
 ; PROJECT for Sensors and Microsystem Electronics, final file version
 ; Date : 2026
 ; Author : Lucas Placentino
