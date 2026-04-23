@@ -6,6 +6,7 @@
 ; License: MIT
 ;
 
+; === set inputs, init states and ADC configs ===
 Inputs_Init:
     ; ---- inputs init ----
     ; ---- ADC (for joystick) ----
@@ -59,14 +60,14 @@ Inputs_Init:
     sts Prev_KP_E, temp
     sts Prev_KP_F, temp
 
-    ; ----#----
     ret
+; ===#===
 
 ; === handle user inputs (joystick, keypad) ===
 User_Inputs:
     rcall Handle_Joystick
-    ;rjmp kp_polling_1 ; ? rjmp or rcall ?
-    rcall Scan_Keypad ; ? rjmp or rcall ?
+    ;rjmp kp_polling_1 ; old name
+    rcall Scan_Keypad
     rjmp loop
 ; ===#===
 
@@ -79,7 +80,7 @@ Reset_Prev_Btn_States:
 Reset_Prev_JS_States:
     push temp
 
-    clr temp ; ldi temp, 0
+    clr temp ; aka ldi temp, 0
 
     sts Prev_JS_Click, temp
     sts Prev_JS_Down, temp
@@ -93,7 +94,7 @@ Reset_Prev_JS_States:
 Reset_Prev_KP_States:
     push temp
 
-    clr temp ; ldi temp, 0
+    clr temp ; aka ldi temp, 0
 
     sts Prev_KP_0, temp
     sts Prev_KP_1, temp
@@ -122,47 +123,43 @@ Handle_Joystick:
     push r17
     push r18
 
-    ; FIXME:
-    ; ; -- check JS click button
-    ; sbis JS_BTN_SENSE, JS_BTN_I ; Skip if Bit in I/o reg is Set (skip if click not pressed), bc btn pulled up
-    ; rcall Play_Pause_btn ; if click pressed, toggle play/pause
-
     ; -- check joystick click button
-    clr temp ; assume button is pressed (0) ; ldi temp, 0
+    clr temp ; assume button is pressed (0) ; aka ldi temp, 0
     sbic JS_BTN_SENSE, JS_BTN_I ; Skip next instruction if Bit in I/o reg is Cleared (0 aka pressed bc pulled-up)
-    ldi temp, 1 ; If pin is HIGH, set temp to 1 (released)
+    ldi temp, 1 ; if pin is HIGH, set temp to 1 (released)
     ; -- edge detection for btn
     lds r17, Prev_JS_Click
     cp temp, r17
-    breq Skip_Click_Check ; if state hasn't changed, skip toggle logic
+    breq Skip_JS_Click_Check ; if state hasn't changed, skip toggle logic
     sts Prev_JS_Click, temp ; state changed, save the new physical state
     cpi temp, 1
-    breq Skip_Click_Check ; if changed to 1 (btn released), skip toggle
+    breq Skip_JS_Click_Check ; if changed to 1 (btn released), skip toggle
     ; -- it changed to 0 (aka clicked)
     ; toggle play/pause state
-    lds r17, Is_Playing
+    lds r17, Is_Playing ; load current play state
     ldi r18, 1
-    eor r17, r18 ; XOR flips 1 to 0, and 0 to 1
-    sts Is_Playing, r17
+    eor r17, r18 ; XOR flips 1 to 0, and 0 to 1, toggles play state
+    sts Is_Playing, r17 ; save new play state
 
-    ; instantly mute buzzer if just paused
+    ; -- instantly mute buzzer if just paused
     sbrs r17, 0 ; skip mute if bit 0 is set (playing = 1)
-    rcall Mute_Buzzer ; mute if paused (0) ; TODO: something else?
+    rcall Mute_Buzzer ; mute if paused (0)
 
-    ; TODO: ?
+    ; skip rest of joystick handling if just clicked
     rjmp Handle_Joystick_End ; ignore rest of joystick handling if just clicked ?
 
-    Skip_Click_Check:
+    Skip_JS_Click_Check:
+    ; JS not clicked
 
     ; -- x-asix
-    ldi r18, 0 ; joystick x-axis
+    ldi r18, 0 ; joystick x-axis, CHANNEL 0 of ADC
     rcall Read_ADC ; read ADC value of joystick, store result in r19
     cpi r19, 192 ; compare with high threshold
     brsh joystick_right
     cpi r19, 64 ; compare with low threshold
     brlo joystick_left
     ; -- y-axis
-    ldi r18, 1 ; joystick y-axis
+    ldi r18, 1 ; joystick y-axis, CHANNEL 1 of ADC
     rcall Read_ADC ; read ADC value of joystick, store result in r19
     cpi r19, 192 ; compare with high threshold
     brsh joystick_down
@@ -172,8 +169,9 @@ Handle_Joystick:
     ; -- joystick in center (or in deadzone)
     rjmp joystick_center
 
-    Handle_Joystick_End:
+    Handle_Joystick_End: ; don't forget to restore and ret
 
+    ; -- restore
     pop r18
     pop r17
     pop temp
@@ -205,7 +203,6 @@ joystick_down:
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
     ; -- decrease BPM
     rcall Decr_BPM_btn
-    rcall LED3_ON ; FIXME: DEBUG
     rjmp Handle_Joystick_End
 joystick_up:
     ; -- reset states
@@ -215,10 +212,7 @@ joystick_up:
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
     ; -- increase BPM
     rcall Incr_BPM_btn
-    rcall LED2_ON ; FIXME: DEBUG
     rjmp Handle_Joystick_End
-
-; FIXME: for DEBUG:
 joystick_center:
     ; -- reset states
     clr temp ; default joystick state
@@ -226,56 +220,58 @@ joystick_center:
     sts Prev_JS_Down, temp ; reset prev btn down state to 0 (no btn down)
     sts Prev_JS_Right, temp ; reset prev joystick x state to center
     sts Prev_JS_Left, temp ; reset prev joystick y state to center
+    ; -- turn off debug LEDs
     rcall LED2_OFF
     rcall LED3_OFF
     rjmp Handle_Joystick_End
 
+; --- ADC reading for joystick ---
+; input r18 = ADC channel to read (0-7)
+; output r19 = ADC value (0-255)
 Read_ADC:
-    ; input: r18 = ADC channel to read (0-7)
-    ; output: r19 = ADC value (0-255)
     push temp
 
     ; -- set channel
-    ; TODO: necessary ?
     andi r18, 0b00001111 ; channel must be 0-15 because MUX3:0 are only 4 bits
     ori r18, (1<<REFS0) | (1<<ADLAR) ; apply reference and left-adjust bits again (see setup)
     sts ADMUX, r18 ; write to ADMUX to set channel (and reference/adjust bits again like in setup)
 
-
-
     ; -- start conversion
     lds temp, ADCSRA ; read current value of ADC Control and Status Register A
     ori temp, (1<<ADSC) ; set the ADC Start Conversion bit
-    sts ADCSRA, temp
+    sts ADCSRA, temp ; write back to ADCSRA to start conversion
 
     Wait_For_ADC:
     ; -- wait for the conversion end
     ; QDC hardware will automatically clear the ADSC bit when done
-    lds temp, ADCSRA
+    lds temp, ADCSRA ; read ADCSRA to check ADSC bit
     sbrc temp, ADSC ; skip next if ADSC is 0
-    rjmp Wait_For_ADC ; loop back up
+    rjmp Wait_For_ADC ; loop back up, keep waiting
+    
+    ; conversion done
 
-    ; -- get value result
-    lds r19, ADCH ; output (read only the high byte for 8-bit resolution)
+    ; -- get result value
+    lds r19, ADCH ; output (read only the high byte for 8-bit resolution!)
 
-    ; restore
+    ; -- restore
     pop temp
     ret
+; ---#---
 ; ===#===
 
 ; === Keypad scanning/polling routine step 2 ===
 ; making this a macro can make it more elegant
 ;KP_POLLING_2:
 .macro KP_POLLING_2
-    ; careful: need to first modify PORT reg before modifying DDR reg.
-    ; rows as inputs:
+    ; CAREFUL: need to first modify PORT reg before modifying DDR reg.
+    ; -- rows as inputs:
     ldi temp,(1<<ROW1)|(1<<ROW2)|(1<<ROW3)|(1<<ROW4)
     out KP_PORT,temp ; bitmask to keypad port for rows
-    ; cols as outputs:
+    ; -- cols as outputs:
     ldi temp,(1<<COL1)|(1<<COL2)|(1<<COL3)|(1<<COL4)
-    out KP_DDR,temp     ; bitmask to keypad port dir for cols
+    out KP_DDR,temp ; bitmask to keypad port dir for cols
 
-    nop ; No operation because "Add NOP when changing output connected to an input" slide 8 ("Bits in PINx register are always one cycle behind", synchronizer: PIN reg 1 clk-cycle late)
+    nop ; no operation because "Add NOP when changing output connected to an input" slide 8 ("Bits in PINx register are always one cycle behind", synchronizer: PIN reg 1 clk-cycle late)
     ; now we can read PIN reg
 
     ;ldi row,0x0 ; default nothing pressed
@@ -300,7 +296,7 @@ Read_ADC:
     rjmp @3 ; rjmp to fourth arg of macro
 
     rjmp no_kp_pressed
-    ret ; i guess shoudln't happen
+    ;ret ; i guess shoudln't happen
 .endmacro
 ; ===#===
 
@@ -351,34 +347,29 @@ kp_polling_1:
 
     ; nothing was pressed
     rjmp no_kp_pressed
-    ret ; i guess shoudln't happen
+    ;ret ; i guess shoudln't happen
 
 no_kp_pressed:
-    ; TODO: do something/nothing ?
+    ; -- reset keypad states (for edge detection/software debouncing)
     rcall Reset_Prev_KP_States ; reset all btn states to 0 (no btn pressed)
-    ret
+    ret ; dont forget ret here!
 
 col1pressed:
     ; col Y=1
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col1row1,col1row2,col1row3,col1row4 ; macro with args to rjmp to corresponding label
-    ; don't happen:
-    ret
 col2pressed:
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col2row1,col2row2,col2row3,col2row4 ; macro with args to rjmp to corresponding label
-    ; don't happen:
-    ret
+    ;ret ; i guess don't happen
 col3pressed:
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col3row1,col3row2,col3row3,col3row4 ; macro with args to rjmp to corresponding label
-    ; don't happen:
-    ret
+    ;ret ; i guess don't happen
 col4pressed:
     ;rcall KP_POLLING_2 ; check row X value => in reg `row` after this func call
     KP_POLLING_2 col4row1,col4row2,col4row3,col4row4 ; macro with args to rjmp to corresponding label
-    ; don't happen:
-    ret
+    ;ret ; i guess don't happen
 
 ; --- COL 1 ---
 col1row1: ; "7" => G#
@@ -392,9 +383,10 @@ col1row1: ; "7" => G#
 
     ldi temp, 1
     sts Prev_KP_7, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 8 ; NOTE_G#* idx
 
@@ -421,9 +413,10 @@ col1row2: ; "4" => E
 
     ldi temp, 1
     sts Prev_KP_4, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 4 ; NOTE_E* idx
 
@@ -450,9 +443,10 @@ col1row3: ; "1" => C
 
     ldi temp, 1
     sts Prev_KP_1, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 0  ; NOTE_C* idx
 
@@ -479,9 +473,10 @@ col1row4: ; "A"
 
     ldi temp, 1
     sts Prev_KP_A, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     rcall LED3_ON ; FIXME: DEBUG
 
@@ -509,9 +504,10 @@ col2row1: ; "8" => A
 
     ldi temp, 1
     sts Prev_KP_8, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 9 ; NOTE_A* idx
 
@@ -538,9 +534,10 @@ col2row2: ; "5" => F
 
     ldi temp, 1
     sts Prev_KP_5, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 5  ; NOTE_F* idx
 
@@ -567,9 +564,10 @@ col2row3: ; "2" => C#
 
     ldi temp, 1
     sts Prev_KP_2, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 1  ; NOTE_C#* idx
 
@@ -596,9 +594,10 @@ col2row4: ; "0"
 
     ldi temp, 1
     sts Prev_KP_0, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     rcall LED2_ON ; FIXME: DEBUG
 
@@ -626,9 +625,10 @@ col3row1: ; "9" => A#
 
     ldi temp, 1
     sts Prev_KP_9, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 10 ; NOTE_A#* idx
 
@@ -655,9 +655,10 @@ col3row2: ; "6" => F#
 
     ldi temp, 1
     sts Prev_KP_6, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 6 ; NOTE_F#* idx
 
@@ -684,9 +685,10 @@ col3row3: ; "3" => D
 
     ldi temp, 1
     sts Prev_KP_3, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 2  ; NOTE_D* idx
 
@@ -713,10 +715,13 @@ col3row4: ; "B"
 
     ldi temp, 1
     sts Prev_KP_B, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
+    ; ...
+    ; ...
     ; ...
 
     Skip_KP_B:
@@ -735,9 +740,10 @@ col4row1: ; "F" => B
 
     ldi temp, 1
     sts Prev_KP_F, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 11 ; NOTE_B* idx
 
@@ -764,9 +770,10 @@ col4row2: ; "E" => G
 
     ldi temp, 1
     sts Prev_KP_E, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 7 ; NOTE_G* idx
 
@@ -793,9 +800,10 @@ col4row3: ; "D" => D#
 
     ldi temp, 1
     sts Prev_KP_D, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 3  ; NOTE_D#* idx
 
@@ -822,9 +830,10 @@ col4row4: ; "C" => mute(no note/blank) current step
 
     ldi temp, 1
     sts Prev_KP_C, temp ; store new state (1)
-    ; ! DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; DON'T FORGET TO RESTORE TO 0 LATER (like at Metronome ISR?)
+    ; or reset state when no_kp_pressed
 
-    ; -- it changed to 0 (aka pressed)
+    ; -- it changed to pressed
 
     ldi r17, 0xFF ; special idx meaning "no note" or "mute"
     rcall Set_Current_Sequence_Note ; input is r17 = note idx
@@ -833,23 +842,6 @@ col4row4: ; "C" => mute(no note/blank) current step
     pop temp
     ret
 ; ===#===
-
-; ; === handle play pause btn ===
-; Play_Pause_btn:
-;     ; toggle play/pause state
-;     ; -- edge detection
-;     lds r22, Prev_JS_Click
-;     cpi r22, 1 ; was prev state click 1 ?
-;     breq Skip_Click_Check ; if state hasn't changed (still click), do nothing
-;     ldi r22, 1 ; new state is click 1
-;     sts Prev_JS_Click, r22 ; save new state
-;     ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
-;     ; -- toggle play/pause state
-;     ; TODO: implement
-;     rcall Toggle_Play_Pause
-;     Skip_Click_Check:
-;     ret
-; ; ===#===
 
 ; === handle manual sequencer steps ===
 Next_Step_btn:
@@ -862,7 +854,7 @@ Next_Step_btn:
     breq Skip_Right_Check ; if state hasn't changed (still right), do nothing
     ldi r22, 1 ; new state is right 1
     sts Prev_JS_Right, r22 ; save new state
-    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+    ; DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
 
     rcall Next_Step
     rcall Draw_Step
@@ -888,7 +880,7 @@ Prev_Step_Btn:
     breq Skip_Left_Check ; if state hasn't changed (still left), do nothing
     ldi r22, 1 ; new state is left 1
     sts Prev_JS_Left, r22 ; save new state
-    ; ! DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
+    ; DON'T FORGET TO SET BACK TO 0 AFTER RELEASED
 
     rcall Prev_Step
     rcall Draw_Step
@@ -983,7 +975,7 @@ Decr_BPM_btn:
     ret
 ; ===#===
 
-; === Set Current Sequence Note ===
+; === set current sequence note ===
 ; input r17 is note idx to put at the current step
 Set_Current_Sequence_Note:
     push ZL
@@ -991,27 +983,28 @@ Set_Current_Sequence_Note:
     push r18
     push temp
 
-    ; get the current step, 0-31
+    ; -- get the current step, 0-31
     lds r18, Step
 
-    ; set z pointer to start of Sequence
+    ; -- set z pointer to start of Sequence
     ldi ZL, low(Sequence)
     ldi ZH, high(Sequence)
 
-    ; add Step offset to z pointer (Sequence + Step)
+    ; -- add Step offset to z pointer (Sequence + Step)
     clr temp
     add ZL, r18
     adc ZH, temp
 
-    ; store the newest note into SRAM
+    ; -- store the newest note into SRAM
     st Z, r17
 
-    ; update the screen
+    ; -- update the screen
     rcall Draw_Sequence
 
-    ; play note instantly to hear it
+    ; -- play note instantly to hear it (especially useful when paused)
     rcall Play_Note
 
+    ; -- restore
     pop temp
     pop r18
     pop ZH
