@@ -383,7 +383,7 @@ setup:
     sts Current_Octave, temp ; store default octave in SRAM
 
     ; -- init bpm
-    ldi r17, 120 ; default BPM
+    ldi r17, 80 ; default BPM
     rcall Update_BPM ; set BPM (save in SRAM and update Tempo_Delay)
 
     ; ---- outputs ----
@@ -563,7 +563,7 @@ Next_Step:
     clr temp ; aka ldi temp,0
     sts Step, temp
     End_Next_Step:
-    ;rcall Reset_Prev_Btn_States
+	rcall Reset_Prev_KP_States ; DO NOT RESET JS STATE
     ret
 
 Prev_Step:
@@ -579,7 +579,7 @@ Prev_Step:
     ldi temp, 31
     sts Step, temp
     End_Prev_Step:
-    ;rcall Reset_Prev_Btn_States
+	rcall Reset_Prev_KP_States ; DO NOT RESET JS STATE
     ret
 
 ; === outputs ===

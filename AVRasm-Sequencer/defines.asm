@@ -460,7 +460,7 @@ BPM_Table:
 ; === Default Startup Melody Data ===
 ; 0xFF is blank note (mute)
 ; NOTE: these were generated using an LLM !
-;       (i'm not a musician and dont know music theory)
+;       (i'm no musician and dont know music theory)
 
 ; Ode to Joy (Octave 4), 32 steps
 ; Preset_Melody_1:
@@ -495,7 +495,7 @@ BPM_Table:
 ;     ; Measure 4: C4 (quarter), A3 (quarter), A3 (quarter), (rest)
 ;     .db 36, 0xFF, 33, 0xFF, 33, 0xFF, 0xFF, 0xFF
 
-;; Star Wars - Main Theme (32 steps) ; doesn't sound good
+;; ; Star Wars - Main Theme (32 steps) ; doesn't sound good
 ;; Default_Melody_no:
 ;;     ; Measure 1: C3 (Half), G3 (Half)
 ;;     .db 24, 24, 24, 0xFF, 31, 31, 31, 31
@@ -505,6 +505,17 @@ BPM_Table:
 ;;     .db 31, 31, 31, 31, 30, 28, 26, 0xFF
 ;;     ; Measure 4: C4 (Half), G3 (Half)
 ;;     .db 36, 36, 36, 0xFF, 31, 31, 31, 31
+
+;; ; no
+;; Default_Melody:
+;;     ; Steps 1-8: E3, E3, blank, E3, E3, A3, B3, C4
+;;     .db 28, 28, 28, 0xFF, 28, 33, 35, 36
+;;     ; Steps 9-16: C4, C4, C4, blank, blank, blank, C4, C4
+;;     .db 36, 36, 36, 36, 0xFF, 0xFF, 36, 36
+;;     ; Steps 17-24: blank, C4, C4, C4, C4, B3, A3, blank
+;;     .db 0xFF, 36, 36, 36, 36, 36, 36, 35
+;;     ; Steps 25-32: F3, F3, F3, F3, F3, blank, blank, blank
+;;     .db 33, 30, 30, 30, 30, 30, 30, 0xFF
 
 ; Imperial March (Darth Vader's Theme) - 32 steps
 ; Preset_Melody_4:

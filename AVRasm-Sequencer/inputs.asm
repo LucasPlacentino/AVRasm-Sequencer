@@ -79,7 +79,7 @@ Reset_Prev_Btn_States:
 Reset_Prev_JS_States:
     push temp
 
-    clr temp
+    clr temp ; ldi temp, 0
 
     sts Prev_JS_Click, temp
     sts Prev_JS_Down, temp
@@ -93,7 +93,7 @@ Reset_Prev_JS_States:
 Reset_Prev_KP_States:
     push temp
 
-    clr temp
+    clr temp ; ldi temp, 0
 
     sts Prev_KP_0, temp
     sts Prev_KP_1, temp
@@ -128,7 +128,7 @@ Handle_Joystick:
     ; rcall Play_Pause_btn ; if click pressed, toggle play/pause
 
     ; -- check joystick click button
-    clr temp ; assume button is pressed (0)
+    clr temp ; assume button is pressed (0) ; ldi temp, 0
     sbic JS_BTN_SENSE, JS_BTN_I ; Skip next instruction if Bit in I/o reg is Cleared (0 aka pressed bc pulled-up)
     ldi temp, 1 ; If pin is HIGH, set temp to 1 (released)
     ; -- edge detection for btn
