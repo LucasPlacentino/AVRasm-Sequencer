@@ -6,70 +6,19 @@
 ; License: MIT
 ;
 
-; this file is just for some .equ and preset data in flash mem
-
-; ; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
-; ; Timer1 reset value for overflow timing
-; ; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
-; ; e.g: .equ TCNT1_RESET_880 = 47354  ;440Hz (880Hz because toggle) ? A
-; .equ TCNT1_RESET_C4 = 34958 ; 261.63 Hz
-; .equ TCNT1_RESET_CS4 = 36674 ; 277.18 Hz (C#)
-; .equ TCNT1_RESET_D4 = 38294 ; 293.66 Hz
-; .equ TCNT1_RESET_DS4 = 39823 ; 311.13 Hz (D#)
-; .equ TCNT1_RESET_E4 = 41267 ; 329.63 Hz
-; .equ TCNT1_RESET_F4 = 42628 ; 349.23 Hz
-; .equ TCNT1_RESET_FS4 = 43914 ; 369.99 Hz (F#)
-; .equ TCNT1_RESET_G4 = 45128 ; 392.00 Hz
-; .equ TCNT1_RESET_GS4 = 46273 ; 415.30 Hz (G#)
-; .equ TCNT1_RESET_A4 = 47354 ; 440.00 Hz
-; .equ TCNT1_RESET_AS4 = 48375 ; 466.16 Hz (A#)
-; .equ TCNT1_RESET_B4 = 49338 ; 493.88 Hz
-; .equ TCNT1_RESET_C5 = 50247 ; 523.25 Hz
-; ; --- OCR1A values for each note (prescaler of 1):
-; ; TODO: verify values in practice
-; .equ NOTE_C3 = 61156 ; 130.81 Hz
-; .equ NOTE_CS3 = 57723 ; 138.59 Hz (C#)
-; .equ NOTE_D3 = 54484 ; 146.83 Hz
-; .equ NOTE_DS3 = 51426 ; 155.56 Hz (D#)
-; .equ NOTE_E3 = 48540 ; 164.81 Hz
-; .equ NOTE_F3 = 45815 ; 174.61 Hz
-; .equ NOTE_FS3 = 43242 ; 185.00 Hz (F#)
-; .equ NOTE_G3 = 40815 ; 196.00 Hz
-; .equ NOTE_GS3 = 38525 ; 207.65 Hz (G#)
-; .equ NOTE_A3 = 36363 ; 220.00 Hz ---------
-; .equ NOTE_AS3 = 34322 ; 233.08 Hz (A#)
-; .equ NOTE_B3 = 32396 ; 246.94 Hz
-; ; --- 12 notes in an octave ; i could only use 12 notes so the bottom 4 keys are for other features
-; ; maybe use bottom first two keys to change octave ?
-; .equ NOTE_C4 = 30577 ; 261.63 Hz
-; ; or stop here ? to get only one octave but keep 3 buttons for other stuff ?
-; .equ NOTE_CS4 = 28861 ; 277.18 Hz (C#)
-; .equ NOTE_D4 = 27241 ; 293.66 Hz
-; .equ NOTE_DS4 = 25712 ; 311.13 Hz (D#)
-; ; that's 16 notes, too much ?
-; .equ NOTE_E4 = 24269 ; 329.63 Hz
-; .equ NOTE_F4 = 22907 ; 349.23 Hz
-; .equ NOTE_FS4 = 21621 ; 369.99 Hz (F#)
-; .equ NOTE_G4 = 20407 ; 392.00 Hz
-; .equ NOTE_GS4 = 19262 ; 415.30 Hz (G#)
-; .equ NOTE_A4 = 18181 ; 440.00 Hz ---------
-; .equ NOTE_AS4 = 17160 ; 466.16 Hz (A#)
-; .equ NOTE_B4 = 16197 ; 493.88 Hz
-; ; ---
-; .equ NOTE_C5 = 15288 ; 523.25 Hz
-; ; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+; => this file is just for some .equ, .dw and preset data in flash mem
 
 
 ; TODO: use CTC mdoe ? (clear timer on compare match)
 ; load value into OCR1A
-; automatically resets timer and toggles pin (COM1A0 = 1) on the clock edge, it's more precise for slightly better sound
-; buzzer needs to be connected to OC1A pin (PB1), it is thanks!!
+; automatically resets timer and toggles pin (COM1A0 = 1) on the clock edge, it's more precise for slightly better sound -> it also does all in hardware, no interrupt!
+; buzzer needs to be connected to OC1A pin (PB1), it is thanks Robin Deleener for designing it like this haha!!
 ; ocr1a = (16MHz / (2*N*freq_sound)) - 1
 ; where N is the prescaler
 
 ; === OCR1A values for each note (prescaler = 8): ===
 ; generated this using excel:
-; --- 1st Octave ---
+; --- 1st octave ---
 .equ NOTE_C1 = 30577 ; 32.70 Hz
 .equ NOTE_CS1 = 28861 ; 34.65 Hz
 .equ NOTE_D1 = 27241 ; 36.71 Hz
@@ -82,7 +31,7 @@
 .equ NOTE_A1 = 18181 ; 55.00 Hz
 .equ NOTE_AS1 = 17160 ; 58.27 Hz
 .equ NOTE_B1 = 16197 ; 61.74 Hz
-; --- 2nd Octave ---
+; --- 2nd octave ---
 .equ NOTE_C2 = 15288 ; 65.41 Hz
 .equ NOTE_CS2 = 14430 ; 69.30 Hz
 .equ NOTE_D2 = 13620 ; 73.42 Hz
@@ -95,7 +44,7 @@
 .equ NOTE_A2 = 9090 ; 110.00 Hz
 .equ NOTE_AS2 = 8579 ; 116.54 Hz
 .equ NOTE_B2 = 8098 ; 123.47 Hz
-; --- 3rd Octave ---
+; --- 3rd octave ---
 .equ NOTE_C3 = 7644 ; 130.81 Hz
 .equ NOTE_CS3 = 7214 ; 138.59 Hz
 .equ NOTE_D3 = 6809 ; 146.83 Hz
@@ -108,7 +57,7 @@
 .equ NOTE_A3 = 4544 ; 220.00 Hz
 .equ NOTE_AS3 = 4289 ; 233.08 Hz
 .equ NOTE_B3 = 4049 ; 246.94 Hz
-; --- 4th Octave ---
+; --- 4th octave ---
 .equ NOTE_C4 = 3822 ; 261.63 Hz
 .equ NOTE_CS4 = 3607 ; 277.18 Hz
 .equ NOTE_D4 = 3404 ; 293.66 Hz
@@ -121,7 +70,7 @@
 .equ NOTE_A4 = 2271 ; 440.00 Hz
 .equ NOTE_AS4 = 2144 ; 466.16 Hz
 .equ NOTE_B4 = 2024 ; 493.88 Hz
-; ; --- 5th Octave ---
+; ; --- 5th octave ---
 ; .equ NOTE_C5 = 1910 ; 523.25 Hz
 
 .equ NB_NOTES = 48 ;
@@ -153,157 +102,6 @@ Note_Table:
 ;    .dw NOTE_C5 ; let's only use 4 octaves it's good enough
 ; 0xFF will be no sound
 ; ===#===
-
-
-; ; ==== BPM LUT (1ms res) ===
-; ; BPM to ms Delay LUT ("16th" notes), rounded
-; ; idx 0 = 60 BPM, idx 1 = 61 BPM ...etc... idx 140 = 200 BPM
-; ; (60,000/(4*BPM) = delay)
-; ; generated this using excel:
-; BPM_Table:
-;     .dw 249 ; 60 BPM
-;     .dw 245 ; 61 BPM
-;     .dw 241 ; 62 BPM
-;     .dw 237 ; 63 BPM
-;     .dw 233 ; 64 BPM
-;     .dw 230 ; 65 BPM
-;     .dw 226 ; 66 BPM
-;     .dw 223 ; 67 BPM
-;     .dw 220 ; 68 BPM
-;     .dw 216 ; 69 BPM
-;     .dw 213 ; 70 BPM
-;     .dw 210 ; 71 BPM
-;     .dw 207 ; 72 BPM
-;     .dw 204 ; 73 BPM
-;     .dw 202 ; 74 BPM
-;     .dw 199 ; 75 BPM
-;     .dw 196 ; 76 BPM
-;     .dw 194 ; 77 BPM
-;     .dw 191 ; 78 BPM
-;     .dw 189 ; 79 BPM
-;     .dw 187 ; 80 BPM
-;     .dw 184 ; 81 BPM
-;     .dw 182 ; 82 BPM
-;     .dw 180 ; 83 BPM
-;     .dw 178 ; 84 BPM
-;     .dw 175 ; 85 BPM
-;     .dw 173 ; 86 BPM
-;     .dw 171 ; 87 BPM
-;     .dw 169 ; 88 BPM
-;     .dw 168 ; 89 BPM
-;     .dw 166 ; 90 BPM
-;     .dw 164 ; 91 BPM
-;     .dw 162 ; 92 BPM
-;     .dw 160 ; 93 BPM
-;     .dw 159 ; 94 BPM
-;     .dw 157 ; 95 BPM
-;     .dw 155 ; 96 BPM
-;     .dw 154 ; 97 BPM
-;     .dw 152 ; 98 BPM
-;     .dw 151 ; 99 BPM
-;     .dw 149 ; 100 BPM
-;     .dw 148 ; 101 BPM
-;     .dw 146 ; 102 BPM
-;     .dw 145 ; 103 BPM
-;     .dw 143 ; 104 BPM
-;     .dw 142 ; 105 BPM
-;     .dw 141 ; 106 BPM
-;     .dw 139 ; 107 BPM
-;     .dw 138 ; 108 BPM
-;     .dw 137 ; 109 BPM
-;     .dw 135 ; 110 BPM
-;     .dw 134 ; 111 BPM
-;     .dw 133 ; 112 BPM
-;     .dw 132 ; 113 BPM
-;     .dw 131 ; 114 BPM
-;     .dw 129 ; 115 BPM
-;     .dw 128 ; 116 BPM
-;     .dw 127 ; 117 BPM
-;     .dw 126 ; 118 BPM
-;     .dw 125 ; 119 BPM
-;     .dw 124 ; 120 BPM
-;     .dw 123 ; 121 BPM
-;     .dw 122 ; 122 BPM
-;     .dw 121 ; 123 BPM
-;     .dw 120 ; 124 BPM
-;     .dw 119 ; 125 BPM
-;     .dw 118 ; 126 BPM
-;     .dw 117 ; 127 BPM
-;     .dw 116 ; 128 BPM
-;     .dw 115 ; 129 BPM
-;     .dw 114 ; 130 BPM
-;     .dw 114 ; 131 BPM
-;     .dw 113 ; 132 BPM
-;     .dw 112 ; 133 BPM
-;     .dw 111 ; 134 BPM
-;     .dw 110 ; 135 BPM
-;     .dw 109 ; 136 BPM
-;     .dw 108 ; 137 BPM
-;     .dw 108 ; 138 BPM
-;     .dw 107 ; 139 BPM
-;     .dw 106 ; 140 BPM
-;     .dw 105 ; 141 BPM
-;     .dw 105 ; 142 BPM
-;     .dw 104 ; 143 BPM
-;     .dw 103 ; 144 BPM
-;     .dw 102 ; 145 BPM
-;     .dw 102 ; 146 BPM
-;     .dw 101 ; 147 BPM
-;     .dw 100 ; 148 BPM
-;     .dw 100 ; 149 BPM
-;     .dw 99 ; 150 BPM
-;     .dw 98 ; 151 BPM
-;     .dw 98 ; 152 BPM
-;     .dw 97 ; 153 BPM
-;     .dw 96 ; 154 BPM
-;     .dw 96 ; 155 BPM
-;     .dw 95 ; 156 BPM
-;     .dw 95 ; 157 BPM
-;     .dw 94 ; 158 BPM
-;     .dw 93 ; 159 BPM
-;     .dw 93 ; 160 BPM
-;     .dw 92 ; 161 BPM
-;     .dw 92 ; 162 BPM
-;     .dw 91 ; 163 BPM
-;     .dw 90 ; 164 BPM
-;     .dw 90 ; 165 BPM
-;     .dw 89 ; 166 BPM
-;     .dw 89 ; 167 BPM
-;     .dw 88 ; 168 BPM
-;     .dw 88 ; 169 BPM
-;     .dw 87 ; 170 BPM
-;     .dw 87 ; 171 BPM
-;     .dw 86 ; 172 BPM
-;     .dw 86 ; 173 BPM
-;     .dw 85 ; 174 BPM
-;     .dw 85 ; 175 BPM
-;     .dw 84 ; 176 BPM
-;     .dw 84 ; 177 BPM
-;     .dw 83 ; 178 BPM
-;     .dw 83 ; 179 BPM
-;     .dw 82 ; 180 BPM
-;     .dw 82 ; 181 BPM
-;     .dw 81 ; 182 BPM
-;     .dw 81 ; 183 BPM
-;     .dw 81 ; 184 BPM
-;     .dw 80 ; 185 BPM
-;     .dw 80 ; 186 BPM
-;     .dw 79 ; 187 BPM
-;     .dw 79 ; 188 BPM
-;     .dw 78 ; 189 BPM
-;     .dw 78 ; 190 BPM
-;     .dw 78 ; 191 BPM
-;     .dw 77 ; 192 BPM
-;     .dw 77 ; 193 BPM
-;     .dw 76 ; 194 BPM
-;     .dw 76 ; 195 BPM
-;     .dw 76 ; 196 BPM
-;     .dw 75 ; 197 BPM
-;     .dw 75 ; 198 BPM
-;     .dw 74 ; 199 BPM
-;     .dw 74 ; 200 BPM
-; ; hmh not precise enough, too rounded
-; ; ===#===
 
 ; ==== BPM LUT (0.1ms res) ===
 ; BPM to ms Delay LUT ("16th" notes), rounded
@@ -462,6 +260,19 @@ BPM_Table:
 ; NOTE: these were generated using an LLM !
 ;       (i'm no musician and dont know music theory)
 
+; Seven Nation Army - The White Stripes (32 steps), sounds best around 70bpm
+Default_Melody:
+    ; --- FIRST LOOP ---
+    ; Measure 1: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
+    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
+    ; Measure 2: C4 (half), B3 (half)
+    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
+    ; --- SECOND LOOP ---
+    ; Measure 3: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
+    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
+    ; Measure 4: C4 (half), B3 (half)
+    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
+
 ; Ode to Joy (Octave 4), 32 steps
 ; Preset_Melody_1:
 ;     ; Measure 1: E, E, F, G
@@ -528,17 +339,212 @@ BPM_Table:
 ;     ; Measure 4: Gb3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
 ;     .db 30, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
 
-; Seven Nation Army - The White Stripes (32 steps), sounds best around 70bpm
-Default_Melody:
-    ; --- FIRST LOOP ---
-    ; Measure 1: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
-    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
-    ; Measure 2: C4 (half), B3 (half)
-    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
-    ; --- SECOND LOOP ---
-    ; Measure 3: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
-    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
-    ; Measure 4: C4 (half), B3 (half)
-    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
-
 ; ===#===
+
+
+
+
+
+; --------------------------- IGNORE BELOW ----------------------------
+
+; ; ==== BPM LUT (1ms res) ===
+; ; BPM to ms Delay LUT ("16th" notes), rounded
+; ; idx 0 = 60 BPM, idx 1 = 61 BPM ...etc... idx 140 = 200 BPM
+; ; (60,000/(4*BPM) = delay)
+; ; generated this using excel:
+; BPM_Table:
+;     .dw 249 ; 60 BPM
+;     .dw 245 ; 61 BPM
+;     .dw 241 ; 62 BPM
+;     .dw 237 ; 63 BPM
+;     .dw 233 ; 64 BPM
+;     .dw 230 ; 65 BPM
+;     .dw 226 ; 66 BPM
+;     .dw 223 ; 67 BPM
+;     .dw 220 ; 68 BPM
+;     .dw 216 ; 69 BPM
+;     .dw 213 ; 70 BPM
+;     .dw 210 ; 71 BPM
+;     .dw 207 ; 72 BPM
+;     .dw 204 ; 73 BPM
+;     .dw 202 ; 74 BPM
+;     .dw 199 ; 75 BPM
+;     .dw 196 ; 76 BPM
+;     .dw 194 ; 77 BPM
+;     .dw 191 ; 78 BPM
+;     .dw 189 ; 79 BPM
+;     .dw 187 ; 80 BPM
+;     .dw 184 ; 81 BPM
+;     .dw 182 ; 82 BPM
+;     .dw 180 ; 83 BPM
+;     .dw 178 ; 84 BPM
+;     .dw 175 ; 85 BPM
+;     .dw 173 ; 86 BPM
+;     .dw 171 ; 87 BPM
+;     .dw 169 ; 88 BPM
+;     .dw 168 ; 89 BPM
+;     .dw 166 ; 90 BPM
+;     .dw 164 ; 91 BPM
+;     .dw 162 ; 92 BPM
+;     .dw 160 ; 93 BPM
+;     .dw 159 ; 94 BPM
+;     .dw 157 ; 95 BPM
+;     .dw 155 ; 96 BPM
+;     .dw 154 ; 97 BPM
+;     .dw 152 ; 98 BPM
+;     .dw 151 ; 99 BPM
+;     .dw 149 ; 100 BPM
+;     .dw 148 ; 101 BPM
+;     .dw 146 ; 102 BPM
+;     .dw 145 ; 103 BPM
+;     .dw 143 ; 104 BPM
+;     .dw 142 ; 105 BPM
+;     .dw 141 ; 106 BPM
+;     .dw 139 ; 107 BPM
+;     .dw 138 ; 108 BPM
+;     .dw 137 ; 109 BPM
+;     .dw 135 ; 110 BPM
+;     .dw 134 ; 111 BPM
+;     .dw 133 ; 112 BPM
+;     .dw 132 ; 113 BPM
+;     .dw 131 ; 114 BPM
+;     .dw 129 ; 115 BPM
+;     .dw 128 ; 116 BPM
+;     .dw 127 ; 117 BPM
+;     .dw 126 ; 118 BPM
+;     .dw 125 ; 119 BPM
+;     .dw 124 ; 120 BPM
+;     .dw 123 ; 121 BPM
+;     .dw 122 ; 122 BPM
+;     .dw 121 ; 123 BPM
+;     .dw 120 ; 124 BPM
+;     .dw 119 ; 125 BPM
+;     .dw 118 ; 126 BPM
+;     .dw 117 ; 127 BPM
+;     .dw 116 ; 128 BPM
+;     .dw 115 ; 129 BPM
+;     .dw 114 ; 130 BPM
+;     .dw 114 ; 131 BPM
+;     .dw 113 ; 132 BPM
+;     .dw 112 ; 133 BPM
+;     .dw 111 ; 134 BPM
+;     .dw 110 ; 135 BPM
+;     .dw 109 ; 136 BPM
+;     .dw 108 ; 137 BPM
+;     .dw 108 ; 138 BPM
+;     .dw 107 ; 139 BPM
+;     .dw 106 ; 140 BPM
+;     .dw 105 ; 141 BPM
+;     .dw 105 ; 142 BPM
+;     .dw 104 ; 143 BPM
+;     .dw 103 ; 144 BPM
+;     .dw 102 ; 145 BPM
+;     .dw 102 ; 146 BPM
+;     .dw 101 ; 147 BPM
+;     .dw 100 ; 148 BPM
+;     .dw 100 ; 149 BPM
+;     .dw 99 ; 150 BPM
+;     .dw 98 ; 151 BPM
+;     .dw 98 ; 152 BPM
+;     .dw 97 ; 153 BPM
+;     .dw 96 ; 154 BPM
+;     .dw 96 ; 155 BPM
+;     .dw 95 ; 156 BPM
+;     .dw 95 ; 157 BPM
+;     .dw 94 ; 158 BPM
+;     .dw 93 ; 159 BPM
+;     .dw 93 ; 160 BPM
+;     .dw 92 ; 161 BPM
+;     .dw 92 ; 162 BPM
+;     .dw 91 ; 163 BPM
+;     .dw 90 ; 164 BPM
+;     .dw 90 ; 165 BPM
+;     .dw 89 ; 166 BPM
+;     .dw 89 ; 167 BPM
+;     .dw 88 ; 168 BPM
+;     .dw 88 ; 169 BPM
+;     .dw 87 ; 170 BPM
+;     .dw 87 ; 171 BPM
+;     .dw 86 ; 172 BPM
+;     .dw 86 ; 173 BPM
+;     .dw 85 ; 174 BPM
+;     .dw 85 ; 175 BPM
+;     .dw 84 ; 176 BPM
+;     .dw 84 ; 177 BPM
+;     .dw 83 ; 178 BPM
+;     .dw 83 ; 179 BPM
+;     .dw 82 ; 180 BPM
+;     .dw 82 ; 181 BPM
+;     .dw 81 ; 182 BPM
+;     .dw 81 ; 183 BPM
+;     .dw 81 ; 184 BPM
+;     .dw 80 ; 185 BPM
+;     .dw 80 ; 186 BPM
+;     .dw 79 ; 187 BPM
+;     .dw 79 ; 188 BPM
+;     .dw 78 ; 189 BPM
+;     .dw 78 ; 190 BPM
+;     .dw 78 ; 191 BPM
+;     .dw 77 ; 192 BPM
+;     .dw 77 ; 193 BPM
+;     .dw 76 ; 194 BPM
+;     .dw 76 ; 195 BPM
+;     .dw 76 ; 196 BPM
+;     .dw 75 ; 197 BPM
+;     .dw 75 ; 198 BPM
+;     .dw 74 ; 199 BPM
+;     .dw 74 ; 200 BPM
+; ; hmh not precise enough, too rounded
+; ; ===#===
+
+; ; %%%%%%%%%%%%%%%%%% OLD %%%%%%%%%%%%%%%%%%
+; ; Timer1 reset value for overflow timing
+; ; tcnt1 = 65536 - round(16MHz/(2*freq_sound))
+; ; e.g: .equ TCNT1_RESET_880 = 47354  ;440Hz (880Hz because toggle) ? A
+; .equ TCNT1_RESET_C4 = 34958 ; 261.63 Hz
+; .equ TCNT1_RESET_CS4 = 36674 ; 277.18 Hz (C#)
+; .equ TCNT1_RESET_D4 = 38294 ; 293.66 Hz
+; .equ TCNT1_RESET_DS4 = 39823 ; 311.13 Hz (D#)
+; .equ TCNT1_RESET_E4 = 41267 ; 329.63 Hz
+; .equ TCNT1_RESET_F4 = 42628 ; 349.23 Hz
+; .equ TCNT1_RESET_FS4 = 43914 ; 369.99 Hz (F#)
+; .equ TCNT1_RESET_G4 = 45128 ; 392.00 Hz
+; .equ TCNT1_RESET_GS4 = 46273 ; 415.30 Hz (G#)
+; .equ TCNT1_RESET_A4 = 47354 ; 440.00 Hz
+; .equ TCNT1_RESET_AS4 = 48375 ; 466.16 Hz (A#)
+; .equ TCNT1_RESET_B4 = 49338 ; 493.88 Hz
+; .equ TCNT1_RESET_C5 = 50247 ; 523.25 Hz
+; ; --- OCR1A values for each note (prescaler of 1):
+; ; 
+; .equ NOTE_C3 = 61156 ; 130.81 Hz
+; .equ NOTE_CS3 = 57723 ; 138.59 Hz (C#)
+; .equ NOTE_D3 = 54484 ; 146.83 Hz
+; .equ NOTE_DS3 = 51426 ; 155.56 Hz (D#)
+; .equ NOTE_E3 = 48540 ; 164.81 Hz
+; .equ NOTE_F3 = 45815 ; 174.61 Hz
+; .equ NOTE_FS3 = 43242 ; 185.00 Hz (F#)
+; .equ NOTE_G3 = 40815 ; 196.00 Hz
+; .equ NOTE_GS3 = 38525 ; 207.65 Hz (G#)
+; .equ NOTE_A3 = 36363 ; 220.00 Hz ---------
+; .equ NOTE_AS3 = 34322 ; 233.08 Hz (A#)
+; .equ NOTE_B3 = 32396 ; 246.94 Hz
+; ; --- 12 notes in an octave ; i could only use 12 notes so the bottom 4 keys are for other features
+; ; maybe use bottom first two keys to change octave ?
+; .equ NOTE_C4 = 30577 ; 261.63 Hz
+; ; or stop here ? to get only one octave but keep 3 buttons for other stuff ?
+; .equ NOTE_CS4 = 28861 ; 277.18 Hz (C#)
+; .equ NOTE_D4 = 27241 ; 293.66 Hz
+; .equ NOTE_DS4 = 25712 ; 311.13 Hz (D#)
+; ; that's 16 notes, too much ?
+; .equ NOTE_E4 = 24269 ; 329.63 Hz
+; .equ NOTE_F4 = 22907 ; 349.23 Hz
+; .equ NOTE_FS4 = 21621 ; 369.99 Hz (F#)
+; .equ NOTE_G4 = 20407 ; 392.00 Hz
+; .equ NOTE_GS4 = 19262 ; 415.30 Hz (G#)
+; .equ NOTE_A4 = 18181 ; 440.00 Hz ---------
+; .equ NOTE_AS4 = 17160 ; 466.16 Hz (A#)
+; .equ NOTE_B4 = 16197 ; 493.88 Hz
+; ; ---
+; .equ NOTE_C5 = 15288 ; 523.25 Hz
+; ; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
