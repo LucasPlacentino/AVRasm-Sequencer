@@ -18,16 +18,18 @@
 ; .set
 ; etc
 
-; the Z pointer, ZL and ZH are registers R30 and R31, used as a pointer for flash memory access (lpm instruction)
-; the X pointer, XL and XH are registers R26 and R27, used as a pointer for SRAM access (st/ld instructions)
+; the z pointer, ZL and ZH are registers R30 and R31, used as a pointer for flash memory access (lpm instruction)
+; the x pointer, XL and XH are registers R26 and R27, used as a pointer for SRAM access (st/ld instructions)
 
 .def temp = r16 ; example: define alias "temp" for the register "r16"
 .def px_x = r20 ; Set_Pixel input, x coordinate (0 to 39)
 .def px_y = r21 ; Set_Pixel input, y coordinate (0 to 13)
 .def px_state = r22 ; Set_Pixel input, LED pixel state (1=ON, 0=OFF)
 
+; === SRAM definitions ===
 .dseg ; define data segment for SRAM
-.org SRAM_START ; (0x0100 ?)
+.org SRAM_START
+; -- main data variables for the sequencer
 Sequence: .byte 32 ; 32 bytes for the 32 steps
 Step: .byte 1 ; keep traack of step number (0 to 31)
 Current_Octave: .byte 1 ; keep track of current octave (0 to 4)
@@ -58,43 +60,47 @@ Prev_KP_C: .byte 1
 Prev_KP_D: .byte 1
 Prev_KP_E: .byte 1
 Prev_KP_F: .byte 1
-; Screen_Buffer: .byte 70 ; 10 bytes per row * 7 rows (LED diplay) -> 1 bit per LED
-;Screen_Buffer: .byte 560 ; 80(40*2) bytes per row * 7 rows (LED display) -> 1 byte per LED ; set in display.asm file
-Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte
+; -- display
+Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte, 80(=40*2) bytes per row * 7 rows = 560
 Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
-;Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies) ; future extra feature
-Preset_Melody_1: .byte 32 ; preset melody 1 (32 steps)
-Preset_Melody_2: .byte 32 ; preset melody 2 (32 steps)
-Preset_Melody_3: .byte 32 ; preset melody 3 (32 steps)
-Preset_Melody_4: .byte 32 ; preset melody 4 (32 steps)
-User_Melody_1: .byte 32 ; user melody 1 (32 steps)
-User_Melody_2: .byte 32 ; user melody 2 (32 steps)
-User_Melody_3: .byte 32 ; user melody 3 (32 steps)
-User_Melody_4: .byte 32 ; user melody 4 (32 steps)
-.cseg
 
+; -- extra features for the futurre (not implemented yet):
+; Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies)
+; Preset_Melody_1: .byte 32 ; preset melody 1 (32 steps)
+; Preset_Melody_2: .byte 32 ; preset melody 2 (32 steps)
+; Preset_Melody_3: .byte 32 ; preset melody 3 (32 steps)
+; Preset_Melody_4: .byte 32 ; preset melody 4 (32 steps)
+; User_Melody_1: .byte 32 ; user melody 1 (32 steps)
+; User_Melody_2: .byte 32 ; user melody 2 (32 steps)
+; User_Melody_3: .byte 32 ; user melody 3 (32 steps)
+; User_Melody_4: .byte 32 ; user melody 4 (32 steps)
+.cseg ; don't forget
+; ===#===
+
+; === .orgs ===
 .org 0x0000
     rjmp setup
 
 ; timer 0 and 2 are 8bit (up to 255), timer 1 is 16 bit (up to 65535)
 ; use timer 1 for the buzzer sound notes
 
-; timer2 OVF
-.org OC2Aaddr ; timer 2 overflow interrrupt vector
-    rjmp ISR_Metronome
+; timer2 compare match A (for metronome)
+.org OC2Aaddr
+    rjmp ISR_Metronome ; Timer 2 Compare Match A Vector for the Metronome
 
 ; timer0 OVF
 .ORG OVF0addr
     RJMP ISR_Display ; Timer 0 Overflow Vector for the Screen Refresh
-
-; === display ===
-.equ DISPLAY_D = DDRb
-.equ DISPLAY_PORT = PORTb
-.equ DISPLAY_PIN = PINb
-.equ DISPLAY_DATA_I = 3
-.equ DISPLAY_CLK_I = 5
-.include "display.inc"
 ; ===#===
+
+; === outputs ===
+; -- display
+.equ DISPLAY_D = DDRb
+.equ DISPLAY_PORT = PORTb ; PORTb is used for both setting the data line and clock line of the display, and also for reading the switch input, so be careful to not mess with the other pins when configuring it
+.equ DISPLAY_PIN = PINb ; PINb is used for clocking the display and also for reading the switch input, so be careful to not mess with the other pins when configuring it
+.equ DISPLAY_DATA_I = 3 ; data line of the display
+.equ DISPLAY_CLK_I = 5 ; clock line of the display
+.include "display.inc"
 
 ; -- LEDs
 .equ LED2_D = DDRc
@@ -104,38 +110,29 @@ User_Melody_4: .byte 32 ; user melody 4 (32 steps)
 .equ LED3_P = PORTc
 .equ LED3_I = 3 ; or PC3
 
-; ;buzzer
-; .equ BZ_OUT_DIR = DDRb
-; .equ BZ_OUT_BANK = PORTb
-; .equ BZ_OUT_IDX = 1
-; .equ BZ_OUT_PIN_TGL = PINb ; PINxn is PORTxn no need for DDRx for toggling
-; ; we can just do SBI PINb,1 to toggle the buzzer pin
-; .equ BZ_PORT = PORTb
-; .equ BZ_TGL_PIN = PINb
-
 ; -- buzzer
 .equ BZ_D = DDRb
 .equ BZ_P = PORTb
 .equ BZ_I = 1
+; ===#===
 
 ; === inputs ===
 ; -- switch
 .equ SW_D = DDRb
 .equ SW_P = PORTb ; to set pullup
 .equ SW_I = 0
-.equ SW_SENSE = PINb
+.equ SW_SENSE = PINb ; to read switch state
 
 ; -- joystick
-; TODO: how to handle the 4 directions?
 .equ JS_BTN_D = DDRb
 .equ JS_BTN_P = PORTb ; to set pullup
 .equ JS_BTN_I = 2
 .equ JS_BTN_SENSE = PINb
 ; need to use the ADC for the joystick directions
 .equ JS_X_D = DDRc
-.equ JS_X_I = 0 ; ADC0
+.equ JS_X_I = 0 ; ADCchannel0
 .equ JS_Y_D = DDRc
-.equ JS_Y_I = 1 ; ADC1
+.equ JS_Y_I = 1 ; ADCchannel1
 
 ; -- keypad
 .equ KP_PIN = PINd
@@ -160,13 +157,13 @@ User_Melody_4: .byte 32 ; user melody 4 (32 steps)
 
 ; example:
 ;Play_Note_C4:
-;    ; CRITICAL: In AVR asm must write  HIGH byte of a 16-bit register first, then the LOW byte. The hardware latches it.
+;    ; CRITICAL: in AVR asm must write  HIGH byte of a 16-bit register first, then the LOW byte. the hardware latches it.
 ;    ldi temp, high(NOTE_C4)
 ;    sts OCR1AH, temp
 ;    ldi temp, low(NOTE_C4)
 ;    sts OCR1AL, temp
 ;
-;    ; ; Ensure the timer is connected to the pin (un-mute)
+;    ; ; ensure the timer is connected to the pin (un-mute)
 ;    ; ldi temp, (1<<COM1A0)
 ;    ; sts TCCR1A, temp
 ;    ret
@@ -214,13 +211,14 @@ Play_Note:
     ldi temp, (1<<COM1A0) ; COM1A1:0 = 01 -> Toggle OC1A on Compare Match (TCCR1A) ; 1<<COM1A0
     sts TCCR1A, temp
 
-    rjmp End_Play_Note
+    rjmp End_Play_Note ; skip mute part
 
-Note_Mute:
+    Note_Mute:
     ; no note (mute)
     rcall Mute_Buzzer
 
-End_Play_Note:
+    End_Play_Note:
+    ; -- restore
     pop ZH
     pop ZL
     pop r20
@@ -232,11 +230,11 @@ End_Play_Note:
 
 ; === to mute: ===
 Mute_Buzzer:
-    ; disconnect the timer "hardware" from PB1 by clearing COM1A0, this mutes the buzzer
+    ; -- disconnect the timer "hardware" from PB1 by clearing COM1A0, this mutes the buzzer
     ldi temp, 0b00 ; COM1A1:0 = 00 -> normal operation (OC1A disconnected) ; just 0
     sts TCCR1A, temp
-    ; force pin LOW to prevent DC current from damaging the buzzer ?
-    cbi BZ_P, BZ_I
+    ; -- force pin LOW to prevent DC current from damaging the buzzer ?
+    cbi BZ_P, BZ_I ; i don't think that's necessary but let's be safe
     ret
 ; ===#===
 
@@ -251,7 +249,6 @@ Mute_Buzzer:
 ; input r17 is target BPM (must be between 60 and 200 !)
 Update_BPM:
     push temp
-    ;push r17
     push r18
     push r19
     push ZL
@@ -259,31 +256,31 @@ Update_BPM:
 
     sts Current_BPM, r17 ; store current BPM in SRAM for reference
 
-    ; r17 is BPM input for drawing it
+    ; -- r17 is BPM input for drawing it
     rcall Draw_BPM
 
-    ; substract MIB_BPM to get the BPM table idx (0 to 140), because we used BPMs b/w 60 and 200
+    ; -- substract MIB_BPM to get the BPM table idx (0 to 140), because we used BPMs b/w 60 and 200
     subi r17, MIN_BPM
 
-    ; mltiply idx by 2 (because .dw uses 2 bytes)
+    ; -- mltiply idx by 2 (because .dw uses 2 bytes)
     mov r18, r17 ; MOVe lut index to r18 (keep r17 intact)
     clr r19 ; CLeaR r19 for the high byte of the offset
     lsl r18 ; Logical Shift Left (mult r18 by 2) (MSB goes in the Carry Flag (C))
     rol r19 ; ROtate Left thrpugh carry r19, here just pulls the shifted MSB from r18 in the Carry Flag
 
-    ; set z pointer to table origin
+    ; -- set z pointer to table origin
     ldi ZL, low(BPM_Table * 2)
     ldi ZH, high(BPM_Table * 2)
 
-    ; add the offset to the z pointer
+    ; -- add the offset to the z pointer
     add ZL, r18
     adc ZH, r19
 
-    ; get 16-bit delay value
+    ; -- get 16-bit delay value
     lpm r18, Z+ ; read low byte
     lpm r19, Z  ; read high byte
 
-    ; safely update the SRAM metronome varq
+    ; -- safely update the SRAM metronome varq
     ; (to prevent the ISR from reading half a new value while writing it, temporarily disable interrupts)
     cli
     sts Tempo_Delay, r18
@@ -295,7 +292,6 @@ Update_BPM:
     pop ZL
     pop r19
     pop r18
-    ;pop r17
     pop temp
     ret
 ; ===#===
@@ -308,7 +304,7 @@ setup:
     ;ldi temp, low(RAMEND)
     ;out SPL, temp
 
-	; -- init playing state
+    ; -- init playing state
     ldi temp, 0; default to playing or paused (0:paused, 1:playing) ; TODO: choose which?
     sts Is_Playing, temp ; paused or playing by default (on startup)
 
@@ -353,14 +349,12 @@ setup:
     ldi temp, (1<<OCIE2A)
     sts TIMSK2, temp
 
-    /*
-    ; !~~~~~~~~~~
-    ; FIXME:
-    ; ! temporary for testing, set TIMSK2 to 0 to disable buzzer for now
-    ldi temp, 0
-    sts TIMSK2, temp
-    ; !~~~~~~~~~~
-    */
+    ; ; ~~~~~~~~~~
+    ; ; DEBUG:
+    ; ; ! temporary for testing, set TIMSK2 to 0 to disable buzzer for now
+    ; ldi temp, 0
+    ; sts TIMSK2, temp
+    ; ; ~~~~~~~~~~
 
     ; -- Configure OCR2A (ceiling value of timer 2)
     ; 16MHz / Prescaler 64 = 250,000 ticks/sec
@@ -414,16 +408,16 @@ setup:
     ; ----#----
 
     rcall Startup_Display ; start the display with initial values shown
-    sei ; enable interrupts (Set global Interrupt fags)
-    rjmp loop
+    sei ; Set Enable Interrupts
+    rjmp loop ; end of setup, jump to main loop
 ; ===#===
 
 ; === Clear Sequence (stratup) ===
 Init_Sequence:
     push ZL
     push ZH
-	push XL
-	push XH
+    push XL
+    push XH
     push r17
     push temp
 
@@ -431,19 +425,19 @@ Init_Sequence:
     ldi XL, low(Sequence)
     ldi XH, high(Sequence)
 
-	; -- z pointer to base address of the default melody in Flash mem (only z for Flash!)
-	ldi ZL, low(Default_Melody * 2)
+    ; -- z pointer to base address of the default melody in Flash mem (only z for Flash!)
+    ldi ZL, low(Default_Melody * 2)
     ldi ZH, high(Default_Melody * 2)
 
-    ; load rest/mute value
-    ;ldi temp, 0xFF ; 0xFF means mute
+    ; ; load rest/mute value
+    ; ldi temp, 0xFF ; 0xFF means mute, DEBUG: for testing
 
-    ; DEBUG:
-    ;ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave) FIXME: for testing
+    ; ; DEBUG:
+    ; ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave), DEBUG: for testing
 
     ; set below loop duration to the 32 steps
     ldi r17, 32
-Fill_Sequence:
+    Fill_Sequence:
     ; ; store rest/mute value in sequence and auto-increment z pointer to next byte in SRAM
     ; st X+, temp
     ; ; decr counter and loop if not zero
@@ -451,29 +445,29 @@ Fill_Sequence:
     ; brne Fill_Sequence
     ; ; Sequence is initialized with all mutes/rests
 
-	lpm temp, Z+ ; load note index from default melody
+    ; -- fill sequence with default melody from flash mem
+    lpm temp, Z+ ; load note index from default melody
     st X+, temp ; store note index into Sequence
     dec r17
     brne Fill_Sequence
-	; Sequence is initialized with the default melody
+    ; Sequence is initialized with the default melody
 
-
-
+    ; -- restore
     pop temp
     pop r17
-	pop XH
-	pop XL
+    pop XH
+    pop XL
     pop ZH
     pop ZL
     ret
 ; ===#===
 
-; === infinite loop (right after setup) ===
+; === infinite main loop (right after setup) ===
 loop:
 
-    rjmp User_Inputs ; handle user inputs (joystick, keypad) ; ? rjmp or rcall ?
+    rjmp User_Inputs ; handle user inputs (joystick, keypad) ; rjmp! (no ret in it)
 
-    rjmp loop
+    rjmp loop ; doesnt really happen (rjmp loop at end of User_Inputs)
 ; ===#===
 
 ; === Metronome's ISR ===
@@ -484,7 +478,7 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     push r19
     push ZL
     push ZH
-    in temp, SREG
+    in temp, SREG ; in ISR: save status register to temp to preserve the global interrupt flag (for nested interrupts), and also other flags if needed
     push temp
 
     ; -- incr 16-bit Tick Counter
@@ -535,7 +529,7 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     ld r17, Z ; load current step's note index into r17
     rcall Play_Note ; play the note for the current step (r17 is input idx)
 
-    End_Sequence_Play_Note: ; not used anymore
+    ;End_Sequence_Play_Note: ; not used anymore
 
     ; -- advance sequencer step
     rcall Next_Step
@@ -554,60 +548,62 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     reti
 ; ===#===
 
+; === step control ===
 Next_Step:
     ; advance sequencer step
     lds temp, Step
-    ; check if at end of sequence (32 steps), loop back to 0
+    ; -- check if at end of sequence (32 steps), loop back to 0
     cpi temp, 31
-    brsh loop_to_start
+    brsh Loop_To_Start_Next_Step
+
     inc temp ; next step
     sts Step, temp
     rjmp End_Next_Step
-    loop_to_start:
+
+    Loop_To_Start_Next_Step:
     clr temp ; aka ldi temp,0
     sts Step, temp
+
     End_Next_Step:
-	rcall Reset_Prev_KP_States ; DO NOT RESET JS STATE
+    rcall Reset_Prev_KP_States ; DO NOT RESET JS STATE
     ret
 
 Prev_Step:
     ; move to previous step
     lds temp, Step
-    ; check if at start of sequence (step 0), loop back to end (31)
+    ; -- check if at start of sequence (step 0), loop back to end (31)
     cpi temp, 1
-    brlo loop_to_end
+    brlo Loop_To_End_Prev_Step
+
     dec temp ; previous step
     sts Step, temp
     rjmp End_Prev_Step
-    loop_to_end:
+
+    Loop_To_End_Prev_Step:
     ldi temp, 31
     sts Step, temp
-    End_Prev_Step:
-	rcall Reset_Prev_KP_States ; DO NOT RESET JS STATE
-    ret
 
-; === outputs ===
+    End_Prev_Step:
+    rcall Reset_Prev_KP_States ; DO NOT RESET JS STATE
+    ret
+; ===#===
+
+; === led outputs helper functions ===
 LED2_ON:
     ; LOW enable
-    cbi LED2_P,LED2_I ;set bit of led to high
+    cbi LED2_P,LED2_I ;set bit of led to low
     ret
 LED2_OFF:
-    sbi LED2_P,LED2_I ;set bit of led to low
+    ; HIGH disable
+    sbi LED2_P,LED2_I ;set bit of led to high
     ret
 LED3_ON:
     ; LOW enable
-    cbi LED3_P,LED3_I ;set bit of led to high
+    cbi LED3_P,LED3_I ;set bit of led to low
     ret
 LED3_OFF:
-    sbi LED3_P,LED3_I ;set bit of led to low
+    ; HIGH disable
+    sbi LED3_P,LED3_I ;set bit of led to high
     ret
-;BUZON:
-;    ldi R16, 0b1
-;    sts TIMSK0,R16 ; enable timer 0 overflow interrupt
-;    ret
-;BUZOFF:
-;    ldi R16, 0b0
-;    sts TIMSK0,R16 ; disable timer 0 overflow interrupt
-;    ret
 ; ===#===
 

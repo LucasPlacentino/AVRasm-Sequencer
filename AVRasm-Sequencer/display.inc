@@ -81,7 +81,7 @@ ISR_Display:
     push r0
     push r1
     push temp
-    in temp, SREG ; let's push SREG in case we mess with branching and stuff in this ISR
+    in temp, SREG ; in ISR: save status register to temp to preserve the global interrupt flag (for nested interrupts), and also other flags if needed
     push temp
     push r17
     push r18

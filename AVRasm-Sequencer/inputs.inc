@@ -68,7 +68,7 @@ User_Inputs:
     rcall Handle_Joystick
     ;rjmp kp_polling_1 ; old name
     rcall Scan_Keypad
-    rjmp loop
+    rjmp loop ; no ret
 ; ===#===
 
 ; === reset all btn states to 0 ===
