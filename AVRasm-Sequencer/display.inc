@@ -6,43 +6,33 @@
 ; License: MIT
 ;
 
-;--------
-; MACROS
-;--------
-.macro shiftBit_macro
-    sbi DISPLAY_PORT, DISPLAY_DATA_I
-    sbrs @0, @1
-    cbi DISPLAY_PORT, DISPLAY_DATA_I
-    sbi DISPLAY_PIN, DISPLAY_CLK_I
-    sbi DISPLAY_PIN, DISPLAY_CLK_I
-.endmacro
 
+; === init of the screen ===
 Init_Display:
+    ; init Active_Row to 0
+    clr temp
+    sts Active_Row, temp
 
-    ; 3. Initialize Active_Row to 0
-    CLR temp
-    STS Active_Row, temp
-
-    ; 3. Clear the SRAM Buffer to black (0)
+    ; clear the displya buffer to black (0)
     rcall Clear_Screen
 
-    ; ; FIXME: test
+    ; ; DEBUG: test
     ; ldi px_x, 5
     ; ldi px_y, 8
-    ; ldi px_state, 1
+    ; ldi px_state, 1 ; state = ON
     ; rcall Set_Pixel
 
-    ; ; FIXME: test
-    ; LDI px_y, 13          ; Constant Y coordinate
-    ; LDI px_state, 1       ; State = ON
-    ; LDI px_x, 0           ; Start X at 0
+    ; ; DEBUG: test
+    ; ldi px_y, 13 ; y coord
+    ; ldi px_state, 1 ; state = ON
+    ; ldi px_x, 0 ; start x coord at 0
     ; Draw_Bottom_Line:
-    ; rcall Set_Pixel       ; Draw the current pixel
-    ; INC px_x              ; Move 1 pixel to the right
-    ; CPI px_x, 32          ; Compare X with 32 (the limit)
-    ; BRNE Draw_Bottom_Line ; If X is not 40, loop back and draw the next one
+    ; rcall Set_Pixel ; draw this pixel
+    ; inc px_x ; move right 1 pixel 
+    ; cpi px_x, 32 ; compare x with max
+    ; brne Draw_Bottom_Line ; if x is not 32, loop back and draw next pixel
 
-    ; TODO: draw everything once
+    ; ; DEBUG: draw everything once
     ; rcall Draw_BPM
     ; rcall Draw_Sequence
     ; rcall Draw_Octave
@@ -51,35 +41,48 @@ Init_Display:
     ldi px_y, 12
     ldi px_state, 1
     ldi px_x, 0
-    draw_separator_loop:
+    Draw_Separator_Loop:
     rcall Set_Pixel
     inc px_x
     cpi px_x, 32
-    brne draw_separator_loop
+    brne Draw_Separator_Loop
 
     ret
+; ===#===
 
+; === apply correct info to screen at statup ===
 Startup_Display:
     push r17
-    lds r17, Current_BPM
+    lds r17, Current_BPM ; get current BPM from SRAM
     rcall Draw_BPM
 
     rcall Draw_Sequence
     rcall Draw_Octave
-	rcall Draw_Step
+    rcall Draw_Step
 
     pop r17
     ret
+; ===#===
 
-;---------------------------------------------------------
-; ISR: Timer 0 Overflow (Screen Multiplexing)
-;---------------------------------------------------------
+; === macro for shifting a bit of the row mask into the data line (in ISR below) ===
+.macro Shift_Bit_macro
+    sbi DISPLAY_PORT, DISPLAY_DATA_I ; set data line to 1
+    sbrs @0, @1 ; skip if bit @1 of reg@0 is set (if the bit of the mask for this row is 1, we want to set the data line to 1, otherwise we want to leave it at 0)
+    cbi DISPLAY_PORT, DISPLAY_DATA_I ; set data line to 0 if bit @1 of reg@0 is clear
+    sbi DISPLAY_PIN, DISPLAY_CLK_I ; clock the data line to shift it into the shift register
+    sbi DISPLAY_PIN, DISPLAY_CLK_I ; toggles back the clock line
+.endmacro
+; ===#===
+
+; === ISR for timer0 overflow (screen multiplexing) ===
+; called every Xms/us (see timer0 settings) to udpate the display for the next active row
+; it works by, each time it's called, updating the shift registesr to output the correct pixels for that row
 ISR_Display:
-    push temp
-    in temp, SREG
-    push temp
     push r0
     push r1
+    push temp
+    in temp, SREG ; let's push SREG in case we mess with branching and stuff in this ISR
+    push temp
     push r17
     push r18
     push r19
@@ -87,98 +90,102 @@ ISR_Display:
     push ZL
     push ZH
 
-    lds r19, Active_Row
+    lds r19, Active_Row ; get active row (0-6)
 
-    LDI r18, 80
-    MUL r19, r18
-    MOV ZL, r0
-    MOV ZH, r1
+    ldi r18, 80 ; num pixels per row (physical row not logical drawing row)
+    mul r19, r18 ; row num * 80 (num pixels per row) to get start address of this row in screen buffer
+    mov ZL, r0 ; low byte of mult result is in r0
+    mov ZH, r1 ; high byte of mult result is in r1
 
-    CLR r18
-    ADD ZL, r18
-    ADC ZH, r18
+    clr r18 ; aka ldi r18, 0
+    add ZL, r18 ; add x offset (0 for now since we're diong full rows)
+    adc ZH, r18 ; add carry to high byte
 
-    SUBI ZL, low(-Screen_Buffer)
-    SBCI ZH, high(-Screen_Buffer)
+    subi ZL, low(-Screen_Buffer) ; convert to address in flash mem
+    sbci ZH, high(-Screen_Buffer) ; same with carry
 
-    LDI r18, 80
-isr_ColLoop:
-    LD r1, Z+
-    CBI DISPLAY_PORT, DISPLAY_DATA_I
-    SBRC r1, 0
-    SBI DISPLAY_PORT, DISPLAY_DATA_I
-    SBI DISPLAY_PIN, DISPLAY_CLK_I
-    SBI DISPLAY_PIN, DISPLAY_CLK_I
-    DEC r18
-    BRNE isr_ColLoop
+    ldi r18, 80 ; num pixels per row (physical row not logical drawing row)
+    isr_Col_Loop:
+    ld r1, Z+ ; load this pixel value (0 or 1) from screen buffer and post-increment Z pointer
+    cbi DISPLAY_PORT, DISPLAY_DATA_I ; default to 0 (off)
+    sbrc r1, 0 ; skip if bit 0 of r1 is clear (pixel value is 0, keep it off)
+    sbi DISPLAY_PORT, DISPLAY_DATA_I ; set to 1 (on) if bit 0 of r1 is set (pixel value is 1)
+    sbi DISPLAY_PIN, DISPLAY_CLK_I ; clock the data line to shift it into the shift register
+    sbi DISPLAY_PIN, DISPLAY_CLK_I ; toggles back the clock line
+    dec r18 ; decrement pixel counter
+    brne isr_Col_Loop ; loop until we've done all 80 pixels in this row
 
-    CBI DISPLAY_PORT, DISPLAY_DATA_I
-    SBI DISPLAY_PIN, DISPLAY_CLK_I
-    SBI DISPLAY_PIN, DISPLAY_CLK_I
+    cbi DISPLAY_PORT, DISPLAY_DATA_I ; reset data line to 0 after the row is done
+    sbi DISPLAY_PIN, DISPLAY_CLK_I ; clock the data line to shift it into the shift register (to make sure the last pixel is registered)
+    sbi DISPLAY_PIN, DISPLAY_CLK_I ; toggles back the clock line
 
-    LDI r23, 0b1000000
-    MOV temp, r19
-    TST temp
-    BREQ skip_shift
-shift_mask_loop:
-    LSR r23
-    DEC temp
-    BRNE shift_mask_loop
-skip_shift:
+    ldi r23, 0b1000000 ; bit mask to get the correct bit from r19 (active row num) for the shift register
+    mov temp, r19 
+    tst temp ; if active row is 0, we don't need to shift the mask, otherwise we do (shift left by active row num)
+    breq Skip_Shift ; if active row is 0, skip the shifting
+    Shift_Mask_Loop:
+    lsr r23 ; shift the mask right by 1 (equivalent to shifting left by 1 on the next iteration)
+    dec temp ; decrement the temp counter (which started as active row num)
+    brne Shift_Mask_Loop ; loop until we've shifted the mask the correct number of times
+    Skip_Shift:
 
-    shiftBit_macro r23, 6
-    shiftBit_macro r23, 5
-    shiftBit_macro r23, 4
-    shiftBit_macro r23, 3
-    shiftBit_macro r23, 2
-    shiftBit_macro r23, 1
-    shiftBit_macro r23, 0
+    ; muhc more elegant using a macro
+    ; operands of macro: @0 is reg, @1 is bit num
+    Shift_Bit_macro r23, 6 ; shift the correct bit of the mask into the data line to select the correct row on the display
+    Shift_Bit_macro r23, 5
+    Shift_Bit_macro r23, 4
+    Shift_Bit_macro r23, 3
+    Shift_Bit_macro r23, 2
+    Shift_Bit_macro r23, 1
+    Shift_Bit_macro r23, 0
 
-    SBI DISPLAY_PIN, 4
-    CBI DISPLAY_PORT, 4
+    sbi DISPLAY_PIN, 4 ; set latch pin high to output the row data to the display
+    cbi DISPLAY_PORT, 4 ; set latch pin low again to prepare for the next row (latch on falling edge)
 
-    INC r19
-    CPI r19, 7
-    BRNE save_row
-    CLR r19
-save_row:
-    STS Active_Row, r19
+    inc r19 ; increment active row
+    cpi r19, 7 ; if active row is 7 (beyond last row), reset to 0
+    brne Save_Row ; if active row is not 7, save it and exit
+    clr r19 ; reset to 0
+    Save_Row:
+    sts Active_Row, r19 ; save new active row num to SRAM
 
-    POP ZH
-    POP ZL
-    POP r23
-    POP r19
-    POP r18
+    ; restore
+    pop ZH
+    pop ZL
+    pop r23
+    pop r19
+    pop r18
     pop r17
-    POP r1
-    POP r0
-    POP temp
-    OUT SREG, temp
-    POP temp
-    RETI
+    pop temp
+    out SREG, temp
+    pop temp
+    pop r1
+    pop r0
+    reti ; don't forget the i because ISR, bruh
+; ===#=== 
 
-;---------------------------------------------------------
-; Subroutine: Clear_Screen
-; Fills all 560 bytes of the Screen Buffer with 0x00 (Black)
-;---------------------------------------------------------
+; === clear screen ===
+; fills all 560 bytes of the Screen_Buffer with 0x00 (off)
 Clear_Screen:
-    PUSH ZL
-    PUSH ZH
-    PUSH XL
-    PUSH XH
-    PUSH temp
+    push ZL
+    push ZH
+    push XL ; let's use the x registers to use the sbiw intruction for the counter
+    push XH
+    push temp
 
-    LDI ZL, low(Screen_Buffer)
-    LDI ZH, high(Screen_Buffer)
+    ; -- load address of Screen_Buffer in flash mem into é register pair
+    ldi ZL, low(Screen_Buffer)
+    ldi ZH, high(Screen_Buffer)
 
-    LDI XL, low(560)            ; Use X register pair as a 16-bit counter
-    LDI XH, high(560)
-    CLR temp                    ; Value to write (0 = OFF)
+    ; -- load 560 (num bytes in screen buffer) into x register pair as a counter
+    ldi XL, low(560) ; use x registers for 16-bit counter
+    ldi XH, high(560) ; allows to use the sbiw instruction do decr 16-bit number
+    clr temp ; value to write to buffer (0=off) ; aka ldi temp, 0
 
-clear_loop:
-    ST Z+, temp                 ; Write 0 and increment Z pointer
-    SBIW XL, 1                  ; Subtract 1 from the 16-bit counter
-    BRNE clear_loop             ; Loop until the counter hits 0
+    Clear_Screen_Loop:
+    st Z+, temp ; write 0 to a byte in Screen_Buffer and increment Z pointer
+    sbiw XL, 1 ; sub immidiate from word (aka 16-bit), meaning decr counter
+    brne Clear_Screen_Loop ; loop until the counter hits 0
 
     POP temp
     POP XH
@@ -186,60 +193,63 @@ clear_loop:
     POP ZH
     POP ZL
     RET
+; ===#===
 
-;---------------------------------------------------------
-; Subroutine: Set_Pixel
-; Input: px_x (r20), px_y (r21), px_state (r22)
-;---------------------------------------------------------
+; === set pixel at x and y coordinates to on or off ===
+; input  px_x (r20), px_y (r21), px_state (r22)
+; the x and y coords are logical positions of the pixels (easier for me)
 Set_Pixel:
-    PUSH r19
-    PUSH px_x
-    PUSH px_y
-    PUSH ZL
-    PUSH ZH
-    PUSH r0
-    PUSH r1
+    push r19
+    push px_x
+    push px_y
+    push ZL
+    push ZH
+    push r0
+    push r1
 
-    CPI px_y, 7
-    BRSH bottom_half_logic
+    ; -- if y < 7, top half of display, otherwise bottom half (electrically only one 7x40)
+    cpi px_y, 7
+    brsh Bottom_Half_Display
 
-top_half_logic:
-    LDI r19, 79
-    SUB r19, px_x
-    MOV px_x, r19
-    LDI r19, 6
-    SUB r19, px_y
-    MOV px_y, r19
-    RJMP calc_address
+    Top_Half_Display:
+    ldi r19, 79 ; max x coord for top half (40-79)
+    sub r19, px_x ; invert x coord for top half because of how the display is placed (physically mirrored horizontally)
+    mov px_x, r19 ; update x coord with the inverted value for the top half
+    ldi r19, 6 ; max y coord for top half is 6 (0-6)
+    sub r19, px_y ; invert y coord for top half because of how the display is placed (physically mirrored vertically also)
+    mov px_y, r19 ; update y coord with the inverted value for the top half
+    rjmp Compute_Pixel_Address
 
-bottom_half_logic:
-    LDI r19, 39
-    SUB r19, px_x
-    MOV px_x, r19
-    LDI r19, 13
-    SUB r19, px_y
-    MOV px_y, r19
+    Bottom_Half_Display:
+    ldi r19, 39 ; max x coord for bottom half (0-39)
+    sub r19, px_x ; invert x coord for bottom half because of how the display is placed (physically mirrored horizontally)
+    mov px_x, r19 ; update x coord with the inverted value for the bottom half
+    ldi r19, 13 ; max y coord for bottom half is 13 (7-13)
+    sub r19, px_y ; invert y coord for bottom half because of how the display is placed (physically mirrored vertically also)
+    mov px_y, r19 ; update y coord with the inverted value for the bottom half
+    ;rjmp Compute_Pixel_Address
 
-calc_address:
-    LDI r19, 80
-    MUL px_y, r19
-    MOV ZL, r0
-    MOV ZH, r1
-    CLR r19
-    ADD ZL, px_x
-    ADC ZH, r19
-    SUBI ZL, low(-Screen_Buffer)
-    SBCI ZH, high(-Screen_Buffer)
-    ST Z, px_state
+    Compute_Pixel_Address:
+    ldi r19, 80 ; num pixels per row (physical row not logical drawing row)
+    mul px_y, r19 ; y coord * num pixels per row to get start address of this row in Screen_Buffer
+    mov ZL, r0 ; low byte of mult result is in r0
+    mov ZH, r1 ; high byte of mult result is in r1
+    clr r19 ; aka ldi r19, 0
+    add ZL, px_x ; add x coord to get address of this pixel in Screen_Buffer
+    adc ZH, r19 ; add carry to high byte
+    subi ZL, low(-Screen_Buffer) ; convert to address in flash mem
+    sbci ZH, high(-Screen_Buffer) ; same with carry
+    st Z, px_state ; store the pixel state (0 or 1) in the correct pixel address in Screen_Buffer
 
-    POP r1
-    POP r0
-    POP ZH
-    POP ZL
-    POP px_y
-    POP px_x
-    POP r19
-    RET
+    pop r1
+    pop r0
+    pop ZH
+    pop ZL
+    pop px_y
+    pop px_x
+    pop r19
+    ret
+; ===#===
 
 ; === drawing current step ===
 Draw_Step:
@@ -247,16 +257,16 @@ Draw_Step:
     push px_x
     push px_y
 
-    ; -- clear all steps
+    ; -- clear all steps on screen first
     ldi temp, 0
     ldi px_y, 13
     ldi px_x, 0
     ldi px_state, 0
-clear_steps_loop:
+    Clear_All_Steps_Loop:
     rcall Set_Pixel
     inc px_x
     cpi px_x, 32
-    brne clear_steps_loop
+    brne Clear_All_Steps_Loop
 
     ; -- draw current step
     lds temp, Step
@@ -281,46 +291,50 @@ Draw_Sequence:
     push ZL
     push ZH
 
+    ; -- load address of Sequence in flash mem
     ldi ZL, low(Sequence)
     ldi ZH, high(Sequence)
+    
     ldi px_x, 0 ; Start at column 0
 
-draw_seq_loop:
-    ; 1. Clear the column for this step (Y=0 to 11)
+    Draw_Sequence_Loop:
+    ; -- clear the column for this step (y=0 to 11)
     ldi px_y, 0
     ldi px_state, 0
-clear_col_loop:
+    Clear_Seq_Col_Loop:
     rcall Set_Pixel
-    inc px_y
-    cpi px_y, 12
-    brne clear_col_loop
+    inc px_y ; move down 1 pixel
+    cpi px_y, 12 ; if y < 12, loop and clear next
+    brne Clear_Seq_Col_Loop
 
-    ; 2. Read the note from the Sequence array
-    ld r17, Z+
-    cpi r17, 0xFF ; Check if it's a rest/mute
-    breq next_step_draw ; skip drawing if muted
+    ; -- read note from Sequence
+    ld r17, Z+ ; load note index for this step and post-increment Z pointer
 
-    ; 3. Calculate note index Modulo 12 (pitch class)
-mod_12_loop:
-    cpi r17, 12
-    brlo mod_12_done
-    subi r17, 12
-    rjmp mod_12_loop
-mod_12_done:
+     ; -- if it's a rest/mute (0xFF), skip drawing the note
+    cpi r17, 0xFF ; 0xFF = mute/rest/blank note
+    breq Skip_Drawing_Muted_Note
 
-    ; 4. Map to Y coordinate: 11 - note
-    ; This puts C at the bottom (y=11) and B at the top (y=0)
+    ; -- calculate note index modulo 12 (whichever octave, still draw the correct ntoe)
+    Modulo_12_Loop:
+    cpi r17, 12 ; if note idx < 12, we're done
+    brlo Modulo_12_Done
+    subi r17, 12 ; sub 12 to get lower octave's note idx
+    rjmp Modulo_12_Loop
+    Modulo_12_Done:
+
+    ; -- map Y coord: 11 - note
+    ; C at the bottom (y=11) and B at the top (y=0)
     ldi px_y, 11
-    sub px_y, r17
+    sub px_y, r17 ; subtract note idx from 11 to get y coord (C=0 -> 11, etc, B=11 -> 0)
 
-    ; 5. Draw the pixel
+    ; -- draw pixel for note
     ldi px_state, 1
     rcall Set_Pixel
 
-next_step_draw:
-    inc px_x
-    cpi px_x, 32
-    brne draw_seq_loop ; Loop for all 32 steps
+    Skip_Drawing_Muted_Note:
+    inc px_x ; move to next column for next step
+    cpi px_x, 32 ; if x < 32, loop and draw next step
+    brne Draw_Sequence_Loop
 
     pop ZH
     pop ZL
@@ -332,126 +346,126 @@ next_step_draw:
     ret
 ; ===#===
 
-;---------------------------------------------------------
-; Subroutine: Draw_Octave
-; Prints Current_Octave at x=33, y=5
-;---------------------------------------------------------
+; === draw Current_Octave number ===
 Draw_Octave:
     push r26
     push px_x
     push px_y
 
-    lds r26, Current_Octave ; Get the current octave (e.g., 0, 1, 2, 3)
+    ; -- get the current octave
+    lds r26, Current_Octave
+    inc r26 ; 0-indexed, so add 1 to for displaying
 
-    ; Current_Octave is 0-indexed, so add 1
-    inc r26
-
-    ldi px_x, 33            ; Set X coordinate
-    ldi px_y, 5             ; Set Y coordinate
-    rcall Draw_Number_3x4   ; Draw the 3x4 digit
+    ldi px_x, 33 ; x coord for octave display
+    ldi px_y, 5 ; y coord for octave display
+    rcall Draw_Number_3x4 ; draw number using 3x4 font
 
     pop px_y
     pop px_x
     pop r26
     ret
+; ===#===
 
-;---------------------------------------------------------
-; Subroutine: Draw_BPM
-; Input: r17 (The current BPM, MIN_BPM=60 to MAX_BPM=200)
-;---------------------------------------------------------
+; === Draw_BPM ===
+; input r17 (current BPM, MIN_BPM=60 to MAX_BPM=200)
 Draw_BPM:
-    ; -- Protect all registers used in this routine --
-    PUSH r18
-    PUSH r19
-    PUSH r23    ; Hundreds
-    PUSH r24    ; Tens
-    PUSH r25    ; Units
-    PUSH r26    ; Digit to draw
-    PUSH px_x
-    PUSH px_y
-    PUSH ZL
-    PUSH ZH
+    push r18
+    push r19
+    push r23 ; hundreds
+    push r24 ; tens
+    push r25 ; units
+    push r26 ; digit to draw
+    push px_x
+    push px_y
+    push ZL
+    push ZH
 
-;     ; --- 1. Clear the 3x14 drawing area (avoid ghosting) ---
-;     LDI px_x, 37
-; clear_box_x:
-;     LDI px_y, 0
-; clear_box_y:
-;     LDI px_state, 0
-;     rcall Set_Pixel
-;     INC px_y
-;     CPI px_y, 14
-;     BRNE clear_box_y
-;     INC px_x
-;     CPI px_x, 40
-;     BRNE clear_box_x
+;     ; -- clear the 3x14 BPM drawing area
+;     ldi px_x, 37
+;     Clear_BPM_Box_X:
+;         ldi px_y, 0
+;         Clear_BPM_Box_Y:
+;             ldi px_state, 0
+;             rcall Set_Pixel
+;             inc px_y
+;             cpi px_y, 14
+;         brne Clear_BPM_Box_Y
+;         inc px_x
+;         cpi px_x, 40
+;     brne Clear_BPM_Box_X
 
-    ; --- 1. OPTIMIZED CLEAR (Fix 2) ---
-    LDI r18, 7                  ; Loop through the 7 physical hardware rows
-    LDI ZL, low(Screen_Buffer)
-    LDI ZH, high(Screen_Buffer)
-    CLR temp                    ; temp (r16) = 0 (LED OFF)
+    ; -- OPTIMIZED CLEAR
+    ; instead of 42 iterations (3 cols x 14 rows), do 7 iterations (1 for each hardware row), and in each iteration clear the 3 pixels of the BPM area that are on that hardware row (since the BPM area is only 3 pixels wide, we can clear all 3 with just 3 instructions, no need for a loop)
+    ldi r18, 7 ; loop through the 7 physical hardware rows
+    ldi ZL, low(Screen_Buffer)
+    ldi ZH, high(Screen_Buffer)
+    clr temp ; temp = 0 (LED off) ; aka ldi temp, 0
 
-clear_bpm_area:
-    ; Wipe Visual Columns 37, 38, 39 on Bottom Panel (Hardware cols 0, 1, 2)
+    Clear_BPM_Area_Loop:
+    ; -- clear visual cols 37, 38, 39 on bottom half (electrical cols 0, 1, 2)
     std Z+0, temp
     std Z+1, temp
     std Z+2, temp
 
-    ; Wipe Visual Columns 37, 38, 39 on Top Panel (Hardware cols 40, 41, 42)
+    ; -- clear visual cols 37, 38, 39 on top panel (electrical cols 40, 41, 42)
     std Z+40, temp
     std Z+41, temp
     std Z+42, temp
 
-    ; Move Z to the start of the next 80-byte hardware row
-    LDI r19, 80
-    ADD ZL, r19
-    CLR r19
-    ADC ZH, r19
-    DEC r18
-    BRNE clear_bpm_area
+    ; -- move Z to the start of the next 80-byte hardware row
+    ldi r19, 80 ; num pixels per row (physical row not logical drawing row)
+    add ZL, r19 ; move z pointer down to next hardware row
+    clr r19 ; aka ldi r19, 0
+    adc ZH, r19 ; add carry to high byte
+    dec r18 ; decrement row counter
+    brne Clear_BPM_Area_Loop ; loop until we've cleared all 7 hardware rows that contain the BPM digits
 
-    ; --- 2. BINARY TO BCD (Digit Splitting) ---
-    CLR r23
-    CLR r24
-    MOV r25, r17
-count_100:
-    CPI r25, 100
-    BRLO count_10
-    SUBI r25, 100
-    INC r23
-    RJMP count_100
-count_10:
-    CPI r25, 10
-    BRLO draw_digits
-    SUBI r25, 10
-    INC r24
-    RJMP count_10
+    ; -- split digits of BPM (max 3 digits bc BPM_MAX=200)
+    clr r23 ; hundreds digit ; aka ldi r23, 0
+    clr r24 ; tens digit ; aka ldi r24, 0
+    mov r25, r17 ; units digit starts as the full BPM value, we'll sub 10 or 100 from it to get the tens and hundreds digits
 
-draw_digits:
-    ; --- 3. DRAW DIGITS ---
-    ; Hundreds Digit (Y = 0)
-    TST r23
-    BREQ skip_hundreds ; Don't draw leading zero
-    MOV r26, r23
-    LDI px_x, 37
-    LDI px_y, 0
-    rcall Draw_Number_3x4
-skip_hundreds:
+    count_100:
+    cpi r25, 100 ; if BPM < 100, we're done with the hundreds digit
+    brlo count_10
+    subi r25, 100 ; sub 100 from units to get the tens digit
+    inc r23 ; increment hundreds digit
+    rjmp count_100 ; max twice since BPM_MAX=200
 
-    ; Tens Digit (Y = 5)
-    MOV r26, r24
-    LDI px_x, 37
-    LDI px_y, 5
+    count_10:
+    cpi r25, 10 ; if BPM < 10, we're done with the tens digit
+    brlo Draw_BPM_Digits
+    subi r25, 10 ; sub 10 from units to get the units digit
+    inc r24 ; increment tens digit
+    rjmp count_10 ; loop until subbed all 10s from the units digit to get the correct tens digit
+
+    ; now r25 only has the units digit, r24 has the tens digit and r23 has the hundreds digit
+
+    ; -- draw digits
+    Draw_BPM_Digits:
+    ; -- hundreds digit (top)
+    tst r23 ; dont draw leading zero (will be blank)
+    breq Skip_Hundreds
+    mov r26, r23 ; move hundreds digit to r26 for drawing
+    ldi px_x, 37 ; x coord for BPM digits
+    ldi px_y, 0 ; y coord for hundreds digit
     rcall Draw_Number_3x4
 
-    ; Units Digit (Y = 10)
-    MOV r26, r25
-    LDI px_x, 37
-    LDI px_y, 10
+    Skip_Hundreds:
+
+    ; -- tens digit (middle)
+    mov r26, r24 ; move tens digit to r26 for drawing
+    ldi px_x, 37 ; x coord for BPM digits
+    ldi px_y, 5 ; y coord for tens digit
     rcall Draw_Number_3x4
 
-    ; -- Restore Registers --
+    ; -- units digit (bottom)
+    mov r26, r25 ; move units digit to r26 for drawing
+    ldi px_x, 37 ; x coord for BPM digits
+    ldi px_y, 10 ; y coord for units digit
+    rcall Draw_Number_3x4
+
+    ; -- restore
     POP ZH
     POP ZL
     POP px_y
@@ -464,64 +478,64 @@ skip_hundreds:
     POP r18
     RET
 
-;---------------------------------------------------------
-; Subroutine: Draw_Number_3x4
-; Inputs: r26 (Digit 0-9), px_x (r20), px_y (r21)
-;---------------------------------------------------------
+; === draw a number using the 3x4 font ===
+; inputs r26 (digit 0-9), px_x (r20), px_y (r21)
 Draw_Number_3x4:
-    PUSH ZL
-    PUSH ZH
-    PUSH r18
-    PUSH r19
-    PUSH px_x
-    PUSH px_y
+    push ZL
+    push ZH
+    push r18
+    push r19
+    push px_x
+    push px_y
 
-    LDI ZL, low(Font3x4 * 2)
-    LDI ZH, high(Font3x4 * 2)
-    LDI r18, 4
-    MUL r26, r18
-    ADD ZL, r0
-    ADC ZH, r1
+    ; -- calculate address of this digit in font data
+    ldi ZL, low(Font_3x4 * 2) ; each digit is 4 bytes, so multiply by 2 to get the correct address for the digit (0-9)
+    ldi ZH, high(Font_3x4 * 2) ; same for high byte
+    ldi r18, 4 ; num bytes per digit
+    mul r26, r18 ; digit index * num bytes per digit to get start address of this digit in font data
+    add ZL, r0 ; add result of mult (in r0) = start address of this digit to low byte of font address
+    adc ZH, r1 ; add carry to high byte
 
-    LDI r18, 4
-draw_row:
-    LPM r19, Z+
+    ldi r18, 4 ; num rows in font (4)
+    Draw_Row_Number_3x4_Loop:
+    lpm r19, Z+ ; load this row of the font for this digit and post-increment z pointer
 
-    LDI px_state, 0
-    SBRC r19, 2
-    LDI px_state, 1
+    ldi px_state, 0 ; default to off
+    sbrc r19, 2 ; skip if bit 2 of this font row is clear (if the bit for this pixel is 0, keep it off)
+    ldi px_state, 1 ; set to 1 (on) if pixel should be on
     rcall Set_Pixel
 
-    INC px_x
-    LDI px_state, 0
-    SBRC r19, 1
-    LDI px_state, 1
+    inc px_x ; move right 1 pixel
+    ldi px_state, 0 ; default to off
+    sbrc r19, 1 ; skip if bit 1 of this font row is clear (if the bit for this pixel is 0, keep it off)
+    ldi px_state, 1 ; set to 1 (on) if pixel should be on
     rcall Set_Pixel
 
-    INC px_x
-    LDI px_state, 0
-    SBRC r19, 0
-    LDI px_state, 1
+    inc px_x ; move right 1 pixel
+    ldi px_state, 0 ; default to off
+    sbrc r19, 0 ; skip if bit 0 of this font row is clear (if the bit for this pixel is 0, keep it off)
+    ldi px_state, 1 ; set to 1 (on) if pixel should be on
     rcall Set_Pixel
 
-    DEC px_x
-    DEC px_x
-    INC px_y
-    DEC r18
-    BRNE draw_row
+    ; -- move to the next row (down 1 pixel and back to the first column of the digit)
+    dec px_x
+    dec px_x
+    inc px_y
+    dec r18 ; decrement row counter (starts at 4)
+    brne Draw_Row_Number_3x4_Loop ; loop until we've drawn all 4 rows of the digit
 
-    POP px_y
-    POP px_x
-    POP r19
-    POP r18
-    POP ZH
-    POP ZL
-    RET
+    ; -- restore
+    pop px_y
+    pop px_x
+    pop r19
+    pop r18
+    pop ZH
+    pop ZL
+    ret
+; ===#===
 
-;---------------------------------------------------------
-; Font Data
-;---------------------------------------------------------
-Font3x4:
+; === 3x4 pixel font data ===
+Font_3x4:
     .db 0b111, 0b101, 0b101, 0b111  ; 0
     .db 0b110, 0b010, 0b010, 0b111  ; 1
     .db 0b111, 0b001, 0b110, 0b111  ; 2
@@ -532,7 +546,7 @@ Font3x4:
     .db 0b111, 0b001, 0b010, 0b010  ; 7
     .db 0b111, 0b101, 0b111, 0b111  ; 8
     .db 0b111, 0b101, 0b111, 0b001  ; 9
-	;.db 0b000, 0b000, 0b000, 0b000  ; blank (for leading zero?)
+    ;.db 0b000, 0b000, 0b000, 0b000  ; blank (for leading zero?) ; not used, just clear area
 
 ; 3x4 Font:
 ; ##
@@ -584,3 +598,5 @@ Font3x4:
 ; # #
 ; # #
 ; ###
+
+; ===#===
