@@ -60,20 +60,24 @@ Prev_KP_C: .byte 1
 Prev_KP_D: .byte 1
 Prev_KP_E: .byte 1
 Prev_KP_F: .byte 1
+KP_A_Debounce_Counter: .byte 1 ; counter for debouncing octave decr button
+KP_0_Debounce_Counter: .byte 1 ; counter for debouncing octave incr button
+KP_B_Debounce_Counter: .byte 1 ; counter for debouncing melody change button
 ; -- display
 Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte, 80(=40*2) bytes per row * 7 rows = 560
 Active_Row: .byte 1 ; Tracks the current screen row (electrically, 0 to 6)
 
-; -- extra features for the futurre (not implemented yet):
-; Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies)
+; -- melody selection
+Current_Melody_Idx: .byte 1 ; index of the current melody in the melody selection (0 to 7, for 8 melodies)
+; preset melodies are in Flash mem
 ; Preset_Melody_1: .byte 32 ; preset melody 1 (32 steps)
 ; Preset_Melody_2: .byte 32 ; preset melody 2 (32 steps)
 ; Preset_Melody_3: .byte 32 ; preset melody 3 (32 steps)
 ; Preset_Melody_4: .byte 32 ; preset melody 4 (32 steps)
-; User_Melody_1: .byte 32 ; user melody 1 (32 steps)
-; User_Melody_2: .byte 32 ; user melody 2 (32 steps)
-; User_Melody_3: .byte 32 ; user melody 3 (32 steps)
-; User_Melody_4: .byte 32 ; user melody 4 (32 steps)
+; Preset_Melody_5: .byte 32 ; preset melody 5 (32 steps)
+User_Melody_1: .byte 32 ; user melody 1 (32 steps)
+User_Melody_2: .byte 32 ; user melody 2 (32 steps)
+User_Melody_3: .byte 32 ; user melody 3 (32 steps)
 .cseg ; don't forget
 ; ===#===
 
@@ -369,8 +373,17 @@ setup:
 
     rcall Inputs_Init ; initialize inputs (switch, joystick, keypad)
 
-    ; -- init sequence in SRAM
-    rcall Init_Sequence ; clear sequence
+    ; ### NOT USED ANYMORE ### using melody selection now
+    ; ; -- init sequence in SRAM
+    ; rcall Init_Sequence ; clear sequence
+    ; ######
+
+    ; -- init melody selection
+    rcall Clear_User_Melodies ; clear user melodies in SRAM on startup (fill with 0xFF for mute/blank)
+    clr temp ; aka ldi temp, 0
+    sts Current_Melody_Idx, temp ; default to melody 0
+    mov r17, temp ; r17 is input melody idx for Load_Melody
+    rcall Load_Melody ; load default melody into sequence (based on Current_Melody_Idx, which is 0 for now)
 
     ; -- init step
     ldi temp, 0 ; default step 0
@@ -412,51 +425,207 @@ setup:
     rjmp loop ; end of setup, jump to main loop
 ; ===#===
 
-; === Clear Sequence (stratup) ===
-Init_Sequence:
+; ; === Clear Sequence (stratup) ===
+; Init_Sequence:
+;     push ZL
+;     push ZH
+;     push XL
+;     push XH
+;     push r17
+;     push temp
+
+;     ; -- x pointer to base address of the sequence in SRAM
+;     ldi XL, low(Sequence)
+;     ldi XH, high(Sequence)
+
+;     ; -- z pointer to base address of the default melody in Flash mem (only z for Flash!)
+;     ldi ZL, low(Default_Melody * 2)
+;     ldi ZH, high(Default_Melody * 2)
+
+;     ; ; load rest/mute value
+;     ; ldi temp, 0xFF ; 0xFF means mute, DEBUG: for testing
+
+;     ; ; DEBUG:
+;     ; ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave), DEBUG: for testing
+
+;     ; set below loop duration to the 32 steps
+;     ldi r17, 32
+;     Fill_Sequence:
+;     ; ; store rest/mute value in sequence and auto-increment z pointer to next byte in SRAM
+;     ; st X+, temp
+;     ; ; decr counter and loop if not zero
+;     ; dec r17
+;     ; brne Fill_Sequence
+;     ; ; Sequence is initialized with all mutes/rests
+
+;     ; -- fill sequence with default melody from flash mem
+;     lpm temp, Z+ ; load note index from default melody
+;     st X+, temp ; store note index into Sequence
+;     dec r17
+;     brne Fill_Sequence
+;     ; Sequence is initialized with the default melody
+
+;     ; -- restore
+;     pop temp
+;     pop r17
+;     pop XH
+;     pop XL
+;     pop ZH
+;     pop ZL
+;     ret
+; ; ===#===
+
+; === Clear user melodies on startup ===
+Clear_User_Melodies:
+    push YL
+    push YH
+    push temp
+    push r18
+
+    ldi YL, low(User_Melody_1)
+    ldi YH, high(User_Melody_1)
+    ldi r18, 128 ; 4 melodies * 32 bytes each
+    ldi temp, 0xFF ; mute/blank note
+
+    Clear_User_Loop:
+    st Y+, temp
+    dec r18
+    brne Clear_User_Loop
+
+    pop r18
+    pop temp
+    pop YH
+    pop YL
+    ret
+; ===#===
+
+; === loading a preset melody ===
+; input r17 (melody index 0-7)
+;   0-4 = Preset_Melody_1 through 5
+;   5-7 = User_Melody_1 through 3
+; load 32 bytes from selected melody into active Sequence
+Load_Melody:
     push ZL
     push ZH
-    push XL
-    push XH
-    push r17
+    push YL
+    push YH
     push temp
+    push r18
 
-    ; -- x pointer to base address of the sequence in SRAM
-    ldi XL, low(Sequence)
-    ldi XH, high(Sequence)
+    ; -- DEBUG:
+    rcall LED2_ON
 
-    ; -- z pointer to base address of the default melody in Flash mem (only z for Flash!)
-    ldi ZL, low(Default_Melody * 2)
-    ldi ZH, high(Default_Melody * 2)
+    ; -- save current melody before loading new one (if user melody)
+    push r17 ; save function input
+    lds r17, Current_Melody_Idx
+    rcall Save_Melody
+    pop r17 ; restore function input
 
-    ; ; load rest/mute value
-    ; ldi temp, 0xFF ; 0xFF means mute, DEBUG: for testing
+    ; -- save melody index
+    sts Current_Melody_Idx, r17
 
-    ; ; DEBUG:
-    ; ldi temp, 33 ; NOTE_A3 is idx 33, A (3rd octave), DEBUG: for testing
+    ; -- calculate source address based on melody index
+    cpi r17, 5
+    brlo Load_Preset_Melody ; if index < 5 it's a preset
 
-    ; set below loop duration to the 32 steps
-    ldi r17, 32
-    Fill_Sequence:
-    ; ; store rest/mute value in sequence and auto-increment z pointer to next byte in SRAM
-    ; st X+, temp
-    ; ; decr counter and loop if not zero
-    ; dec r17
-    ; brne Fill_Sequence
-    ; ; Sequence is initialized with all mutes/rests
 
-    ; -- fill sequence with default melody from flash mem
-    lpm temp, Z+ ; load note index from default melody
-    st X+, temp ; store note index into Sequence
-    dec r17
-    brne Fill_Sequence
-    ; Sequence is initialized with the default melody
+    Load_User_Melody:
+    subi r17, 5 ; adjust to 0-2 for offset calc
+    ldi ZL, low(User_Melody_1)
+    ldi ZH, high(User_Melody_1)
+    rjmp Compute_Melody_Offset
+
+    Load_Preset_Melody:
+    ; preset melody (index 0-4)
+    ldi ZL, low(Preset_Melody_1 * 2) ; flash mem is word-addressed but lpm uses byte addresses, so need to mult by 2 the base address for the first preset melody
+    ldi ZH, high(Preset_Melody_1 * 2) ; flash mem is word-addressed but lpm uses byte addresses, so need to mult by 2 the base address for the first preset melody
+
+    Compute_Melody_Offset:
+    ; each melody is 32 bytes, so offset = index * 32
+    ldi temp, 32
+    mul r17, temp
+    add ZL, r0 ; add low byte of result (mult result is in r1:r0)
+    adc ZH, r1 ; add high byte with carry
+
+    ; -- copy 32 bytes from source (z) to Sequence (y)
+    ldi YL, low(Sequence)
+    ldi YH, high(Sequence)
+    ldi r18, 32 ; counter for the loop over the 32 bytes
+
+    Copy_Melody_Loop:
+    ; check which source we're copying from (user: SRAM, preset: Flash)
+    lds temp, Current_Melody_Idx
+    cpi temp, 5
+    brlo Copy_From_Flash
+    
+    Copy_From_SRAM:
+    ld temp, Z+ ; SRAM: use ld
+    rjmp Store_Byte
+
+    Copy_From_Flash:
+    lpm temp, Z+ ; FLASH: use lpm
+    
+    Store_Byte:
+    st Y+, temp
+    dec r18
+    brne Copy_Melody_Loop
+
+    ; -- refresh display to show new melody
+    rcall Draw_Sequence
+    rcall Draw_Melody_Indicator
 
     ; -- restore
+    pop r18
     pop temp
-    pop r17
-    pop XH
-    pop XL
+    pop YH
+    pop YL
+    pop ZH
+    pop ZL
+    ret
+; ===#===
+
+; === Save user melody to SRAM ===
+; input r17 (melody index 0-7, only saves if 4-7)
+; saves current Sequence to the user melody slot
+Save_Melody:
+    push ZL
+    push ZH
+    push YL
+    push YH
+    push temp
+    push r18
+
+    ; -- if index < 5, it's a preset, skip save
+    cpi r17, 5
+    brlo End_Save_Melody
+
+    ; -- it's a user melody (5-7)
+    subi r17, 5 ; adjust to 0-2 for offset calc
+    ldi ZL, low(User_Melody_1)
+    ldi ZH, high(User_Melody_1)
+
+    ; -- calculate offset for z pointer
+    ldi temp, 32
+    mul r17, temp
+    add ZL, r0
+    adc ZH, r1
+    
+    ; -- copy Sequence to the user melody slot in SRAM
+    ldi YL, low(Sequence)
+    ldi YH, high(Sequence)
+    ldi r18, 32
+    
+    Copy_Seq_To_Melody:
+    ld temp, Y+
+    st Z+, temp
+    dec r18
+    brne Copy_Seq_To_Melody ; loop until all 32 bytes copied
+
+    End_Save_Melody:
+    pop r18
+    pop temp
+    pop YH
+    pop YL
     pop ZH
     pop ZL
     ret

@@ -260,51 +260,38 @@ BPM_Table:
 ; NOTE: these were generated using an LLM !
 ;       (i'm no musician and dont know music theory)
 
-; Seven Nation Army - The White Stripes (32 steps), sounds best around 70bpm
-Default_Melody:
-    ; --- FIRST LOOP ---
-    ; Measure 1: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
-    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
-    ; Measure 2: C4 (half), B3 (half)
-    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
-    ; --- SECOND LOOP ---
-    ; Measure 3: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
-    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
-    ; Measure 4: C4 (half), B3 (half)
-    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
-
 ; Ode to Joy (Octave 4), 32 steps
-; Preset_Melody_1:
-;     ; Measure 1: E, E, F, G
-;     .db 40, 0xFF, 40, 0xFF, 41, 0xFF, 43, 0xFF
-;     ; Measure 2: G, F, E, D
-;     .db 43, 0xFF, 41, 0xFF, 40, 0xFF, 38, 0xFF
-;     ; Measure 3: C, C, D, E
-;     .db 36, 0xFF, 36, 0xFF, 38, 0xFF, 40, 0xFF
-;     ; Measure 4: E (dotted), D (eighth), D (half)
-;     .db 40, 0xFF, 0xFF, 38, 38, 0xFF, 0xFF, 0xFF
+Preset_Melody_1:
+    ; Measure 1: E, E, F, G
+    .db 40, 0xFF, 40, 0xFF, 41, 0xFF, 43, 0xFF
+    ; Measure 2: G, F, E, D
+    .db 43, 0xFF, 41, 0xFF, 40, 0xFF, 38, 0xFF
+    ; Measure 3: C, C, D, E
+    .db 36, 0xFF, 36, 0xFF, 38, 0xFF, 40, 0xFF
+    ; Measure 4: E (dotted), D (eighth), D (half)
+    .db 40, 0xFF, 0xFF, 38, 38, 0xFF, 0xFF, 0xFF
 
 ; Super Mario Bros - Overworld Theme (32 steps)
-; Preset_Melody_2:
-;     ; Measure 1: E4, E4, (rest), E4, (rest), C4, E4, (rest)
-;     .db 40, 40, 0xFF, 40, 0xFF, 36, 40, 0xFF
-;     ; Measure 2: G4, (restx3), G3, (restx3)
-;     .db 43, 0xFF, 0xFF, 0xFF, 31, 0xFF, 0xFF, 0xFF
-;     ; Measure 3: C4, (restx2), G3, (restx2), E3, (rest)
-;     .db 36, 0xFF, 0xFF, 31, 0xFF, 0xFF, 28, 0xFF
-;     ; Measure 4: (rest), A3, (rest), B3, (rest), Bb3, A3, (rest)
-;     .db 0xFF, 33, 0xFF, 35, 0xFF, 34, 33, 0xFF
+Preset_Melody_2:
+    ; Measure 1: E4, E4, (rest), E4, (rest), C4, E4, (rest)
+    .db 40, 40, 0xFF, 40, 0xFF, 36, 40, 0xFF
+    ; Measure 2: G4, (restx3), G3, (restx3)
+    .db 43, 0xFF, 0xFF, 0xFF, 31, 0xFF, 0xFF, 0xFF
+    ; Measure 3: C4, (restx2), G3, (restx2), E3, (rest)
+    .db 36, 0xFF, 0xFF, 31, 0xFF, 0xFF, 28, 0xFF
+    ; Measure 4: (rest), A3, (rest), B3, (rest), Bb3, A3, (rest)
+    .db 0xFF, 33, 0xFF, 35, 0xFF, 34, 33, 0xFF
 
 ; Tetris Theme (Korobeiniki) - 32 steps (Lower Octave)
-; Preset_Melody_3:
-;     ; Measure 1: E4 (quarter), B3 (8th), C4 (8th), D4 (quarter), C4 (8th), B3 (8th)
-;     .db 40, 0xFF, 35, 36, 38, 0xFF, 36, 35
-;     ; Measure 2: A3 (quarter), A3 (8th), C4 (8th), E4 (quarter), D4 (8th), C4 (8th)
-;     .db 33, 0xFF, 33, 36, 40, 0xFF, 38, 36
-;     ; Measure 3: B3 (dotted-quarter), C4 (8th), D4 (quarter), E4 (quarter)
-;     .db 35, 0xFF, 35, 36, 38, 0xFF, 40, 0xFF
-;     ; Measure 4: C4 (quarter), A3 (quarter), A3 (quarter), (rest)
-;     .db 36, 0xFF, 33, 0xFF, 33, 0xFF, 0xFF, 0xFF
+Preset_Melody_3:
+    ; Measure 1: E4 (quarter), B3 (8th), C4 (8th), D4 (quarter), C4 (8th), B3 (8th)
+    .db 40, 0xFF, 35, 36, 38, 0xFF, 36, 35
+    ; Measure 2: A3 (quarter), A3 (8th), C4 (8th), E4 (quarter), D4 (8th), C4 (8th)
+    .db 33, 0xFF, 33, 36, 40, 0xFF, 38, 36
+    ; Measure 3: B3 (dotted-quarter), C4 (8th), D4 (quarter), E4 (quarter)
+    .db 35, 0xFF, 35, 36, 38, 0xFF, 40, 0xFF
+    ; Measure 4: C4 (quarter), A3 (quarter), A3 (quarter), (rest)
+    .db 36, 0xFF, 33, 0xFF, 33, 0xFF, 0xFF, 0xFF
 
 ;; ; Star Wars - Main Theme (32 steps) ; doesn't sound good
 ;; Default_Melody_no:
@@ -329,15 +316,28 @@ Default_Melody:
 ;;     .db 33, 30, 30, 30, 30, 30, 30, 0xFF
 
 ; Imperial March (Darth Vader's Theme) - 32 steps
-; Preset_Melody_4:
-;     ; Measure 1: G3, G3, G3, Eb3 (8th), Bb3 (16th)
-;     .db 31, 0xFF, 31, 0xFF, 31, 0xFF, 27, 34
-;     ; Measure 2: G3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
-;     .db 31, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
-;     ; Measure 3: D4, D4, D4, Eb4 (8th), Bb3 (16th)
-;     .db 38, 0xFF, 38, 0xFF, 38, 0xFF, 39, 34
-;     ; Measure 4: Gb3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
-;     .db 30, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+Preset_Melody_4:
+    ; Measure 1: G3, G3, G3, Eb3 (8th), Bb3 (16th)
+    .db 31, 0xFF, 31, 0xFF, 31, 0xFF, 27, 34
+    ; Measure 2: G3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
+    .db 31, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+    ; Measure 3: D4, D4, D4, Eb4 (8th), Bb3 (16th)
+    .db 38, 0xFF, 38, 0xFF, 38, 0xFF, 39, 34
+    ; Measure 4: Gb3 (quarter), Eb3 (8th), Bb3 (16th), G3 (half)
+    .db 30, 0xFF, 27, 34, 31, 0xFF, 0xFF, 0xFF
+
+; Seven Nation Army - The White Stripes (32 steps), sounds best around 70bpm
+Preset_Melody_5:
+    ; --- FIRST LOOP ---
+    ; Measure 1: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
+    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
+    ; Measure 2: C4 (half), B3 (half)
+    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
+    ; --- SECOND LOOP ---
+    ; Measure 3: E4 (dotted quarter), E4 (8th), G4 (8th), E4 (8th), D4 (8th)
+    .db 40, 40, 40, 0xFF, 40, 43, 40, 38
+    ; Measure 4: C4 (half), B3 (half)
+    .db 36, 36, 36, 0xFF, 35, 35, 35, 0xFF
 
 ; ===#===
 

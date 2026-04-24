@@ -59,6 +59,7 @@ Startup_Display:
     rcall Draw_Sequence
     rcall Draw_Octave
     rcall Draw_Step
+    rcall Draw_Melody_Indicator
 
     pop r17
     ret
@@ -477,6 +478,69 @@ Draw_BPM:
     POP r19
     POP r18
     RET
+; ===#===
+
+; === melody indicator (2x4 pixel array) ===
+; shows which melody (0-7) is currently selected
+; first is bottom left, last is top right (goes left to right, bottom to top)
+Draw_Melody_Indicator:
+    push temp
+    push r17
+    push r18
+
+    ; -- clear all 8 indicator LEDs (0-7)
+    ldi r18, 0
+
+    Turn_Off_All_Melody_Leds:
+        mov r17, r18
+
+        ; -- calculate x = 33 + (index & 1)
+        mov px_x, r17
+        andi px_x, 1
+        ldi temp, 33
+        add px_x, temp
+
+        ; -- calculate y = 13 - (index >> 1)
+        mov px_y, r17
+        lsr px_y          ; divide by 2
+        ldi temp, 13
+        sub temp, px_y
+        mov px_y, temp
+
+        ; -- turn off
+        clr px_state
+        rcall Set_Pixel
+
+        inc r18
+        cpi r18, 8
+        brne Turn_Off_All_Melody_Leds ; loop for all 8 LEDs
+
+    ; -- turn on current melody LED
+    lds r17, Current_Melody_Idx
+
+    ; -- calculate x = 33 + (index & 1)
+    mov px_x, r17
+    andi px_x, 1
+    ldi temp, 33
+    add px_x, temp
+
+    ; -- calculate y = 13 - (index >> 1)
+    mov px_y, r17
+    lsr px_y          ; divide by 2
+    ldi temp, 13
+    sub temp, px_y
+    mov px_y, temp
+
+    ; -- turn on that led
+    ldi px_state, 1
+    rcall Set_Pixel
+
+    ; -- restore
+    pop r18
+    pop r17
+    pop temp
+    ret
+; ===#===
 
 ; === draw a number using the 3x4 font ===
 ; inputs r26 (digit 0-9), px_x (r20), px_y (r21)
