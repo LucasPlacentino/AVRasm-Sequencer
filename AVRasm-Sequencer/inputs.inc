@@ -113,6 +113,14 @@ Reset_Prev_KP_States:
     sts Prev_KP_E, temp
     sts Prev_KP_F, temp
 
+    ; -- decrement KP_B button debounce counter if active
+    lds temp, KP_B_Debounce_Counter
+    tst temp
+    breq Skip_KP_B_Debounce_Dec
+    dec temp
+    sts KP_B_Debounce_Counter, temp
+    Skip_KP_B_Debounce_Dec:
+
     pop temp
     ret
 ; ===#===
@@ -247,7 +255,7 @@ Read_ADC:
     lds temp, ADCSRA ; read ADCSRA to check ADSC bit
     sbrc temp, ADSC ; skip next if ADSC is 0
     rjmp Wait_For_ADC ; loop back up, keep waiting
-    
+
     ; conversion done
 
     ; -- get result value
@@ -705,8 +713,14 @@ col3row3: ; "3" => D
     pop temp
     ret
 col3row4: ; "B"
-    ; TODO: do something ?
+    ; cycle trough melodies (5 preset, 3 user's)
     push temp
+    push r17
+
+    ; -- check KP_B debounce counter
+    lds temp, KP_B_Debounce_Counter
+    tst temp
+    brne Skip_KP_B ; still debouncing, skip
 
     ; -- edge detection, check KP_B state
     lds temp, Prev_KP_B
@@ -720,11 +734,23 @@ col3row4: ; "B"
 
     ; -- it changed to pressed
 
-    ; ...
-    ; ...
-    ; ...
+    ; -- set debounce counter (require ~5-10 release cycles before next trigger)
+    ldi temp, 50 ; TODO: try different values
+    sts KP_B_Debounce_Counter, temp
+
+    ; -- get current melody idx
+    lds r17, Current_Melody_Idx ; (0-7)
+    ; -- next idx and wrap back to 0 if last
+    inc r17
+    cpi r17, 8
+    brlo Skip_Melody_Wrap
+    clr r17 ; wrap back to 0 ; aka ldi r17, 0
+
+    Skip_Melody_Wrap:
+    rcall Load_Melody ; load new melody (idx in r17) into Sequence
 
     Skip_KP_B:
+    pop r17
     pop temp
     ret
 
