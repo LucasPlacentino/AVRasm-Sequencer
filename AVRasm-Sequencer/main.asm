@@ -60,6 +60,8 @@ Prev_KP_C: .byte 1
 Prev_KP_D: .byte 1
 Prev_KP_E: .byte 1
 Prev_KP_F: .byte 1
+KP_A_Debounce_Counter: .byte 1 ; counter for debouncing octave decr button
+KP_0_Debounce_Counter: .byte 1 ; counter for debouncing octave incr button
 KP_B_Debounce_Counter: .byte 1 ; counter for debouncing melody change button
 ; -- display
 Screen_Buffer: .byte 560 ; entire screen buffer, 1 led to 1 byte, 80(=40*2) bytes per row * 7 rows = 560

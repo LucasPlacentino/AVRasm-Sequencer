@@ -6,6 +6,8 @@
 ; License: MIT
 ;
 
+.equ DEBOUNCE_COUNTER_VALUE = 50 ; try different values
+
 ; === set inputs, init states and ADC configs ===
 Inputs_Init:
     ; ---- inputs init ----
@@ -112,6 +114,22 @@ Reset_Prev_KP_States:
     sts Prev_KP_D, temp
     sts Prev_KP_E, temp
     sts Prev_KP_F, temp
+
+    ; -- decrement KP_A button debounce counter if active
+    lds temp, KP_A_Debounce_Counter
+    tst temp
+    breq Skip_KP_A_Debounce_Dec
+    dec temp
+    sts KP_A_Debounce_Counter, temp
+    Skip_KP_A_Debounce_Dec:
+
+    ; -- decrement KP_0 button debounce counter if active
+    lds temp, KP_0_Debounce_Counter
+    tst temp
+    breq Skip_KP_0_Debounce_Dec
+    dec temp
+    sts KP_0_Debounce_Counter, temp
+    Skip_KP_0_Debounce_Dec:
 
     ; -- decrement KP_B button debounce counter if active
     lds temp, KP_B_Debounce_Counter
@@ -474,6 +492,11 @@ col1row4: ; "A"
     ; decrease octave
     push r18
 
+    ; -- check KP_A debounce counter
+    lds temp, KP_A_Debounce_Counter
+    tst temp
+    brne Skip_Decr_Octave ; still debouncing, skip
+
     ; -- edge detection, check KP_A state
     lds temp, Prev_KP_A
     tst temp ; test for 0
@@ -485,6 +508,10 @@ col1row4: ; "A"
     ; or reset state when no_kp_pressed
 
     ; -- it changed to pressed
+
+    ; -- set debounce counter (require ~5-10 release cycles before next trigger)
+    ldi temp, DEBOUNCE_COUNTER_VALUE
+    sts KP_A_Debounce_Counter, temp
 
     rcall LED3_ON ; FIXME: DEBUG
 
@@ -595,6 +622,11 @@ col2row4: ; "0"
     ; increase octave
     push r18
 
+    ; -- check KP_0 debounce counter
+    lds temp, KP_0_Debounce_Counter
+    tst temp
+    brne Skip_Incr_Octave ; still debouncing, skip
+
     ; -- edge detection, check KP_0 state
     lds temp, Prev_KP_0
     tst temp ; test for 0
@@ -606,6 +638,10 @@ col2row4: ; "0"
     ; or reset state when no_kp_pressed
 
     ; -- it changed to pressed
+
+    ; -- set debounce counter (require ~5-10 release cycles before next trigger)
+    ldi temp, DEBOUNCE_COUNTER_VALUE
+    sts KP_0_Debounce_Counter, temp
 
     rcall LED2_ON ; FIXME: DEBUG
 
@@ -735,7 +771,7 @@ col3row4: ; "B"
     ; -- it changed to pressed
 
     ; -- set debounce counter (require ~5-10 release cycles before next trigger)
-    ldi temp, 50 ; TODO: try different values
+    ldi temp, DEBOUNCE_COUNTER_VALUE
     sts KP_B_Debounce_Counter, temp
 
     ; -- get current melody idx
