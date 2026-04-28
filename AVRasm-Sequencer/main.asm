@@ -658,16 +658,16 @@ ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
     sts Tick_Counter, r16
     sts Tick_Counter+1, r17
 
-    ; -- reset btn states (joystick and keypad) every 200ms
-    ; if Tick Counter == 2000 (for 0.1ms)
-    mov r18, r16 ; copy low byte of Tick Counter to r18 for comparison
-    mov r19, r17 ; copy high byte of Tick Counter to r19 for comparison
-    subi r18, low(5000) ; 2000 for 0.1ms resolution = 200ms
-    sbci r19, high(5000) ; sub with carry for high byte
-    ;brne Skip_Reset_Btn_States ; if not 200ms yet, skip reset ; fixed below
-    brlo Skip_Reset_Btn_States ; if not 200ms yet, skip reset
-    rcall Reset_Prev_Btn_States
-    Skip_Reset_Btn_States:
+    ; ; -- reset btn states (joystick and keypad) every 200ms
+    ; ; if Tick Counter == 2000 (for 0.1ms)
+    ; mov r18, r16 ; copy low byte of Tick Counter to r18 for comparison
+    ; mov r19, r17 ; copy high byte of Tick Counter to r19 for comparison
+    ; subi r18, low(5000) ; 2000 for 0.1ms resolution = 200ms
+    ; sbci r19, high(5000) ; sub with carry for high byte
+    ; ;brne Skip_Reset_Btn_States ; if not 200ms yet, skip reset ; fixed below
+    ; brlo Skip_Reset_Btn_States ; if not 200ms yet, skip reset
+    ; rcall Reset_Prev_Btn_States
+    ; Skip_Reset_Btn_States:
 
     ; -- compare with Tempo_Delay (e.g. 1249 is 120 BPM)
     lds ZL, Tempo_Delay
