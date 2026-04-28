@@ -641,6 +641,7 @@ loop:
 
 ; === Metronome's ISR ===
 ISR_Metronome: ; called every time timer 2 reaches OCR2A (every (1ms or) 0.1ms)
+    sei ; enable global interrupts at the start of the ISR to allow for nested interrupts
     push r16 ; aka temp
     push r17
     push r18

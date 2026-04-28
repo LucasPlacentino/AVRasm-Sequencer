@@ -79,6 +79,7 @@ Startup_Display:
 ; called every Xms/us (see timer0 settings) to udpate the display for the next active row
 ; it works by, each time it's called, updating the shift registesr to output the correct pixels for that row
 ISR_Display:
+    sei ; enable global interrupts at the start of the ISR to allow for nested interrupts
     push r0
     push r1
     push temp
